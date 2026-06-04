@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d3b66"/>
+  <rect x="120" y="232" width="272" height="160" rx="10" fill="#f4a259"/>
+  <rect x="150" y="262" width="48" height="48" rx="6" fill="#0d3b66"/>
+  <rect x="232" y="262" width="48" height="48" rx="6" fill="#0d3b66"/>
+  <rect x="314" y="262" width="48" height="48" rx="6" fill="#0d3b66"/>
+  <rect x="190" y="344" width="64" height="48" rx="6" fill="#0d3b66"/>
+  <path d="M120 232 L256 120 L392 232 Z" fill="#ffffff"/>
+  <rect x="236" y="150" width="40" height="60" fill="#0d3b66"/>
+  <text x="256" y="470" font-family="Arial, sans-serif" font-size="64" font-weight="700"
+        fill="#ffffff" text-anchor="middle">UBC</text>
+</svg>

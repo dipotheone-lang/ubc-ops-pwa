@@ -1,0 +1,17 @@
+# Normalize line endings: store text as LF in the repo.
+* text=auto eol=lf
+
+# Treat these explicitly as text (LF)
+*.gs    text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.webmanifest text eol=lf
+*.svg   text eol=lf
+
+# Binary assets — never touch
+*.png   binary

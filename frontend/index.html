@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d3b66" />
+  <title>UBC Operations</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icons/icon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button id="menu-toggle" class="icon-btn" aria-label="Menu">☰</button>
+    <div class="brand">United Brothers Co. <span>Operations</span></div>
+    <div class="topbar-right">
+      <span id="net-status" class="badge ok">Online</span>
+      <button id="sync-now" class="icon-btn" title="Sync now" aria-label="Sync">⟳<span id="pending-badge" class="count-badge">0</span></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav id="sidebar" class="sidebar">
+      <a href="#/dashboard"   data-nav class="nav-item">📊 Dashboard</a>
+      <a href="#/projects"    data-nav class="nav-item">🏗️ Projects</a>
+      <a href="#/procurement" data-nav class="nav-item">🛒 Procurement</a>
+      <a href="#/technical"   data-nav class="nav-item">📐 Technical Office</a>
+      <a href="#/accounting"  data-nav class="nav-item">💷 Accounting</a>
+      <a href="#/warehouse"   data-nav class="nav-item">📦 Warehouse</a>
+      <a href="#/queue"       data-nav class="nav-item">🔄 Sync Queue</a>
+      <a href="#/settings"    data-nav class="nav-item">⚙️ Settings</a>
+    </nav>
+    <main id="view" class="main"></main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/image.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

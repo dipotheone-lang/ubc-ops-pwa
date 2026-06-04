@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# clasp — keep the example, never commit real credentials/scriptId
+backend/.clasp.json
+.clasprc.json
+.clasp.json
+
+# Secrets / local config
+*.local
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
