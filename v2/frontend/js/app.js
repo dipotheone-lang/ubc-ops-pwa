@@ -29,6 +29,8 @@
   function showLogin() {
     var root = document.getElementById('root'); UI.clear(root);
     document.getElementById('appbar').style.display = 'none';
+    document.querySelector('.layout').style.display = 'none';
+    root.style.display = 'block';
     var card = el('div', { class: 'login-card' });
     card.appendChild(el('h1', { text: t('app') }));
     card.appendChild(el('p', { class: 'muted', text: STATE.company ? '' : 'UBcsis — CR 66236' }));
@@ -100,6 +102,10 @@
   function render() {
     I18N.applyDir();
     if (!STATE.user) { showLogin(); return; }
+    // leaving the login screen: clear the overlay and restore the app chrome
+    var root = document.getElementById('root'); UI.clear(root); root.style.display = 'none';
+    document.querySelector('.layout').style.display = 'flex';
+    document.getElementById('appbar').style.display = 'flex';
     document.getElementById('app-title').textContent = t('app');
     var who = document.getElementById('whoami');
     who.textContent = (I18N.current() === 'ar' ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email;
