@@ -19,7 +19,13 @@
       no_records: 'No records.', loading: 'Loading…', signing_in: 'Signing in…', server_url: 'API URL (/exec)',
       must_reset: 'You must set a new password before continuing.', supplier: 'Supplier', project: 'Project',
       full_name: 'Full name', role_label: 'Role', create_user: 'Create user', actions: 'Actions',
-      lang_toggle: 'العربية', online: 'Online', offline: 'Offline', authority: 'Authority Matrix (DoA)'
+      lang_toggle: 'العربية', online: 'Online', offline: 'Offline', authority: 'Authority Matrix (DoA)',
+      procurement: 'Procurement', warehouse: 'Warehouse', finance: 'Finance', techoffice: 'Technical Office',
+      submit: 'Submit for approval', new_doc: 'New', records: 'Records', line_items: 'Line items', add_line: '+ Add line',
+      mr: 'Material Requisition', po: 'Purchase Order', grn: 'Goods Received', miv: 'Material Issue', stock: 'Stock',
+      pv: 'Payment Voucher', rv: 'Receipt Voucher', expense: 'Expense', charter: 'Project Charter', vor: 'Variation Order',
+      ipc: 'Interim Payment Cert', ncr: 'NCR', total: 'Total', date: 'Date', priority: 'Priority', submitted: 'Submitted ✓',
+      view_approval: 'Approval', remove: 'Remove'
     },
     ar: {
       app: 'عمليات الأخوة المتحدين', login: 'تسجيل الدخول', email: 'البريد الإلكتروني', password: 'كلمة المرور',
@@ -35,7 +41,13 @@
       no_records: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', signing_in: 'جارٍ تسجيل الدخول…', server_url: 'رابط الخادم (‎/exec‎)',
       must_reset: 'يجب تعيين كلمة مرور جديدة قبل المتابعة.', supplier: 'مورد', project: 'مشروع',
       full_name: 'الاسم الكامل', role_label: 'الدور', create_user: 'إنشاء مستخدم', actions: 'إجراءات',
-      lang_toggle: 'English', online: 'متصل', offline: 'غير متصل', authority: 'مصفوفة الصلاحيات'
+      lang_toggle: 'English', online: 'متصل', offline: 'غير متصل', authority: 'مصفوفة الصلاحيات',
+      procurement: 'المشتريات', warehouse: 'المخازن', finance: 'المالية', techoffice: 'المكتب الفني',
+      submit: 'إرسال للاعتماد', new_doc: 'جديد', records: 'السجلات', line_items: 'البنود', add_line: '+ إضافة بند',
+      mr: 'طلب شراء', po: 'أمر توريد', grn: 'إذن استلام', miv: 'إذن صرف', stock: 'المخزون',
+      pv: 'إذن صرف نقدي', rv: 'إذن استلام نقدي', expense: 'مصروف', charter: 'ميثاق المشروع', vor: 'أمر تغيير',
+      ipc: 'مستخلص', ncr: 'تقرير عدم مطابقة', total: 'الإجمالي', date: 'التاريخ', priority: 'الأولوية', submitted: 'تم الإرسال ✓',
+      view_approval: 'الاعتماد', remove: 'حذف'
     }
   };
 

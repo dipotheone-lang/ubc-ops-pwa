@@ -138,6 +138,112 @@ var SCHEMA = {
       'folder_procurement_url', 'folder_technical_url', 'folder_accounting_url',
       'folder_warehouse_url', 'folder_site_url', 'notes'].concat(AUDIT_COLUMNS),
     enums: { status: ['Planned', 'Active', 'On Hold', 'Closed'], currency: ['EGP', 'USD', 'EUR', 'GBP'] }
+  },
+
+  /* =================== PHASE 2 — operational value chain =================== */
+
+  /* ---- Procurement ---- */
+  material_requisitions: {
+    sheet: 'MaterialRequisitions', pk: 'id',
+    fk: { project_id: 'projects' },
+    columns: ['id', 'mr_number', 'project_id', 'requested_by', 'required_date', 'cost_code',
+      'priority', 'justification', 'est_total', 'currency', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { priority: ['Low', 'Normal', 'High', 'Urgent'], currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'PO Issued', 'Closed'] }
+  },
+  mr_lines: {
+    sheet: 'MRLines', pk: 'id', fk: { mr_id: 'material_requisitions' },
+    columns: ['id', 'mr_id', 'line_no', 'description', 'spec', 'unit', 'qty', 'est_unit_price', 'est_total'].concat(AUDIT_COLUMNS)
+  },
+  purchase_orders: {
+    sheet: 'PurchaseOrders', pk: 'id',
+    fk: { project_id: 'projects', supplier_id: 'suppliers', mr_id: 'material_requisitions' },
+    columns: ['id', 'po_number', 'project_id', 'supplier_id', 'mr_id', 'order_date', 'delivery_date',
+      'currency', 'subtotal', 'vat', 'total', 'status', 'approval_id', 'attachment_url', 'notes'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Issued', 'Partially Received', 'Received', 'Cancelled'] }
+  },
+  po_lines: {
+    sheet: 'POLines', pk: 'id', fk: { po_id: 'purchase_orders' },
+    columns: ['id', 'po_id', 'line_no', 'description', 'unit', 'qty', 'unit_price', 'line_total'].concat(AUDIT_COLUMNS)
+  },
+
+  /* ---- Warehouse ---- */
+  goods_received_notes: {
+    sheet: 'GoodsReceivedNotes', pk: 'id',
+    fk: { project_id: 'projects', po_id: 'purchase_orders', supplier_id: 'suppliers' },
+    columns: ['id', 'grn_number', 'project_id', 'po_id', 'supplier_id', 'received_date', 'received_by',
+      'condition', 'photo_url', 'notes', 'status'].concat(AUDIT_COLUMNS),
+    enums: { condition: ['Good', 'Damaged', 'Partial', 'Rejected'], status: ['Open', 'Posted'] }
+  },
+  grn_lines: {
+    sheet: 'GRNLines', pk: 'id', fk: { grn_id: 'goods_received_notes' },
+    columns: ['id', 'grn_id', 'line_no', 'item_code', 'description', 'unit', 'qty_ordered', 'qty_received', 'qty_accepted'].concat(AUDIT_COLUMNS)
+  },
+  stock_items: {
+    sheet: 'StockItems', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'project_id', 'item_code', 'description', 'unit', 'qty_on_hand', 'min_level', 'reorder_qty', 'location', 'last_counted'].concat(AUDIT_COLUMNS)
+  },
+  material_issues: {
+    sheet: 'MaterialIssues', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'miv_number', 'project_id', 'issue_date', 'issued_to', 'purpose', 'status'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Draft', 'Issued'] }
+  },
+  miv_lines: {
+    sheet: 'MIVLines', pk: 'id', fk: { miv_id: 'material_issues' },
+    columns: ['id', 'miv_id', 'line_no', 'item_code', 'description', 'unit', 'qty'].concat(AUDIT_COLUMNS)
+  },
+
+  /* ---- Finance ---- */
+  payment_vouchers: {
+    sheet: 'PaymentVouchers', pk: 'id',
+    fk: { project_id: 'projects', supplier_id: 'suppliers', po_id: 'purchase_orders', grn_id: 'goods_received_notes' },
+    columns: ['id', 'pv_number', 'project_id', 'supplier_id', 'payee', 'payment_method', 'amount', 'currency',
+      'po_id', 'grn_id', 'invoice_ref', 'description', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { payment_method: ['Cash', 'Bank Transfer', 'Cheque', 'Credit'], currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Paid'] }
+  },
+  receipt_vouchers: {
+    sheet: 'ReceiptVouchers', pk: 'id', fk: { project_id: 'projects', client_id: 'clients' },
+    columns: ['id', 'rv_number', 'project_id', 'client_id', 'payer', 'amount', 'currency', 'method',
+      'reference', 'wht_amount', 'retention_amount', 'status'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'], method: ['Cash', 'Bank Transfer', 'Cheque'], status: ['Recorded', 'Cleared', 'Bounced'] }
+  },
+  expenses: {
+    sheet: 'Expenses', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'exp_number', 'project_id', 'expense_date', 'category', 'description', 'amount', 'currency',
+      'payment_method', 'vendor', 'receipt_url', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { category: ['Materials', 'Labor', 'Equipment', 'Transport', 'Permits', 'Utilities', 'Subcontractor', 'Misc'],
+      currency: ['EGP', 'USD', 'EUR', 'GBP'], payment_method: ['Cash', 'Bank Transfer', 'Cheque', 'Credit'],
+      status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Paid'] }
+  },
+
+  /* ---- Technical Office ---- */
+  project_charters: {
+    sheet: 'ProjectCharters', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'charter_number', 'project_id', 'objectives', 'scope', 'pm_user', 'start_date', 'end_date',
+      'budget', 'currency', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'], status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Active', 'Closed'] }
+  },
+  variation_orders: {
+    sheet: 'VariationOrders', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'vor_number', 'project_id', 'title', 'description', 'type', 'amount', 'currency',
+      'time_impact_days', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Addition', 'Omission', 'Substitution'], currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Incorporated'] }
+  },
+  interim_payment_certs: {
+    sheet: 'InterimPaymentCerts', pk: 'id', fk: { project_id: 'projects', client_id: 'clients' },
+    columns: ['id', 'ipc_number', 'project_id', 'client_id', 'period', 'gross_amount', 'advance_recovery',
+      'retention', 'vat', 'net_amount', 'currency', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'], status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Invoiced', 'Paid'] }
+  },
+  ncrs: {
+    sheet: 'NCRs', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'ncr_number', 'project_id', 'category', 'description', 'location', 'disposition',
+      'root_cause', 'raised_by', 'closed_by', 'status'].concat(AUDIT_COLUMNS),
+    enums: { category: ['Minor', 'Major', 'Critical'], disposition: ['', 'Use-As-Is', 'Repair', 'Rework', 'Reject'],
+      status: ['Open', 'Dispositioned', 'Closed'] }
   }
 };
 
@@ -230,7 +336,49 @@ var SEED_PERMISSIONS = [
   // Project roles: view their project masters
   ['PROJECT_MGR', 'masters', 'projects', 'view', 'PROJECT'],
   ['PROJECT_MGR', 'masters', 'projects', 'edit', 'PROJECT'],
-  ['SITE_ENGINEER', 'masters', 'projects', 'view', 'PROJECT']
+  ['SITE_ENGINEER', 'masters', 'projects', 'view', 'PROJECT'],
+
+  /* ---- Phase 2: Procurement ---- */
+  ['PROCUREMENT_MGR', 'procurement', '*', 'view', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'procurement', '*', 'create', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'procurement', '*', 'edit', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'procurement', '*', 'submit', 'GLOBAL'],
+  ['CONSTRUCTION_MGR', 'procurement', '*', 'view', 'GLOBAL'],
+  ['PROJECT_MGR', 'procurement', '*', 'view', 'PROJECT'],
+  ['PROJECT_MGR', 'procurement', 'material_requisitions', 'create', 'PROJECT'],
+  ['PROJECT_MGR', 'procurement', 'material_requisitions', 'submit', 'PROJECT'],
+  ['SITE_ENGINEER', 'procurement', 'material_requisitions', 'create', 'PROJECT'],
+  ['SITE_ENGINEER', 'procurement', 'material_requisitions', 'submit', 'PROJECT'],
+  ['SITE_ENGINEER', 'procurement', 'material_requisitions', 'view', 'PROJECT'],
+
+  /* ---- Phase 2: Warehouse ---- */
+  ['STOREKEEPER', 'warehouse', '*', 'view', 'PROJECT'],
+  ['STOREKEEPER', 'warehouse', '*', 'create', 'PROJECT'],
+  ['STOREKEEPER', 'warehouse', '*', 'edit', 'PROJECT'],
+  ['PROJECT_MGR', 'warehouse', '*', 'view', 'PROJECT'],
+  ['CONSTRUCTION_MGR', 'warehouse', '*', 'view', 'GLOBAL'],
+
+  /* ---- Phase 2: Finance ---- */
+  ['FINANCE_CONTROLLER', 'finance', '*', 'view', 'GLOBAL'],
+  ['FINANCE_CONTROLLER', 'finance', '*', 'create', 'GLOBAL'],
+  ['FINANCE_CONTROLLER', 'finance', '*', 'edit', 'GLOBAL'],
+  ['FINANCE_CONTROLLER', 'finance', '*', 'submit', 'GLOBAL'],
+  ['PROJECT_MGR', 'finance', 'expenses', 'create', 'PROJECT'],
+  ['PROJECT_MGR', 'finance', 'expenses', 'submit', 'PROJECT'],
+  ['PROJECT_MGR', 'finance', '*', 'view', 'PROJECT'],
+
+  /* ---- Phase 2: Technical Office ---- */
+  ['TPM_HEAD', 'techoffice', '*', 'view', 'GLOBAL'],
+  ['TPM_HEAD', 'techoffice', '*', 'edit', 'GLOBAL'],
+  ['PROJECT_MGR', 'techoffice', '*', 'view', 'PROJECT'],
+  ['PROJECT_MGR', 'techoffice', '*', 'create', 'PROJECT'],
+  ['PROJECT_MGR', 'techoffice', '*', 'submit', 'PROJECT'],
+  ['QS', 'techoffice', 'variation_orders', 'create', 'PROJECT'],
+  ['QS', 'techoffice', 'interim_payment_certs', 'create', 'PROJECT'],
+  ['QS', 'techoffice', '*', 'view', 'PROJECT'],
+  ['QAQC_ENGINEER', 'techoffice', 'ncrs', 'create', 'PROJECT'],
+  ['QAQC_ENGINEER', 'techoffice', 'ncrs', 'edit', 'PROJECT'],
+  ['QAQC_ENGINEER', 'techoffice', '*', 'view', 'PROJECT']
 ];
 
 /**
@@ -276,7 +424,10 @@ var SEED_DOA = [
   ['tender_submit', 'approve', 0, 1000000, [{ mode: 'all', roles: ['PTS_HEAD'] }], 'Submit ≤1M: PTS Head'],
   ['tender_submit', 'approve', 1000001, 25000000, [{ mode: 'all', roles: ['PTS_HEAD', 'CFO'] }], 'Submit 1M–25M: PTS Head + CFO'],
   ['tender_submit', 'approve', 25000001, null, [{ mode: 'all', roles: ['CEO'] }], 'Submit >25M: CEO'],
-  ['contract_sign', 'sign', 0, null, [{ mode: 'all', roles: ['CEO'] }], 'Sign client contract: CEO only (all values)']
+  ['contract_sign', 'sign', 0, null, [{ mode: 'all', roles: ['CEO'] }], 'Sign client contract: CEO only (all values)'],
+
+  // ---- Project Charter (not amount-based: PM initiates → TPM Head → COO) ----
+  ['charter', 'sign', 0, null, [{ mode: 'all', roles: ['TPM_HEAD'] }, { mode: 'all', roles: ['COO'] }], 'Charter: TPM Head + COO']
 ];
 
 /** Sectors lookup seed (bilingual). */

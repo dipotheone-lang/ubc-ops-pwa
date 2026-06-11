@@ -33,11 +33,14 @@ function objToRow_(h, obj) {
   return r;
 }
 
+var _lockHeld = false;  // re-entrancy guard: nested withLock_ reuse the outer lock
 function withLock_(fn) {
+  if (_lockHeld) return fn();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(CONFIG.LOCK_TIMEOUT_MS))
     throw new AppError('LOCK_TIMEOUT', 'System busy; retry shortly.', 503);
-  try { return fn(); } finally { lock.releaseLock(); }
+  _lockHeld = true;
+  try { return fn(); } finally { _lockHeld = false; lock.releaseLock(); }
 }
 
 /* ------------------------------- reads ---------------------------------- */

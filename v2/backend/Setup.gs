@@ -28,25 +28,27 @@ function initializeWorkbook() {
     report.seeded.roles = SEED_ROLES.length;
   }
 
-  // 3) permissions
-  if (dbList('permissions').length === 0) {
-    SEED_PERMISSIONS.forEach(function (p) {
-      dbInsert('permissions', { role_code: p[0], module: p[1], entity: p[2], action: p[3], scope: p[4] }, 'setup');
-    });
-    report.seeded.permissions = SEED_PERMISSIONS.length;
-  }
+  // 3) permissions — idempotent by role+module+entity+action+scope
+  var seenPerm = {};
+  dbList('permissions').forEach(function (p) { seenPerm[[p.role_code, p.module, p.entity, p.action, p.scope].join('|')] = 1; });
+  var addedP = 0;
+  SEED_PERMISSIONS.forEach(function (p) {
+    if (!seenPerm[p.join('|')]) { dbInsert('permissions', { role_code: p[0], module: p[1], entity: p[2], action: p[3], scope: p[4] }, 'setup'); addedP++; }
+  });
+  report.seeded.permissions = addedP;
 
-  // 4) DoA bands
-  if (dbList('doa_bands').length === 0) {
-    SEED_DOA.forEach(function (d) {
-      dbInsert('doa_bands', {
-        domain: d[0], action: d[1], min_amount: d[2],
-        max_amount: (d[3] === null ? '' : d[3]), currency: CONFIG.BASE_CURRENCY,
-        signer_chain_json: JSON.stringify(d[4]), description_en: d[5], active: 'TRUE'
-      }, 'setup');
-    });
-    report.seeded.doa_bands = SEED_DOA.length;
-  }
+  // 4) DoA bands — idempotent by domain+action+min_amount
+  var seenDoa = {};
+  dbList('doa_bands').forEach(function (d) { seenDoa[[d.domain, d.action, String(d.min_amount)].join('|')] = 1; });
+  var addedD = 0;
+  SEED_DOA.forEach(function (d) {
+    if (!seenDoa[[d[0], d[1], String(d[2])].join('|')]) {
+      dbInsert('doa_bands', { domain: d[0], action: d[1], min_amount: d[2], max_amount: (d[3] === null ? '' : d[3]),
+        currency: CONFIG.BASE_CURRENCY, signer_chain_json: JSON.stringify(d[4]), description_en: d[5], active: 'TRUE' }, 'setup');
+      addedD++;
+    }
+  });
+  report.seeded.doa_bands = addedD;
 
   // 5) lookups
   if (dbList('lookups').length === 0) {

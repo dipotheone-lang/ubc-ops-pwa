@@ -42,15 +42,16 @@ function doPost(e) {
   } catch (err) { return fail(err); }
 }
 
-/** entity → module map for RBAC of generic reads. */
-function moduleOf_(entity) {
-  if (entity === 'projects' || entity === 'clients' || entity === 'suppliers') return 'masters';
-  if (entity === 'users' || entity === 'roles' || entity === 'permissions' ||
-      entity === 'role_assignments' || entity === 'doa_bands' || entity === 'lookups' ||
-      entity === 'sessions' || entity === 'audit_log') return 'admin';
-  if (entity === 'approval_requests' || entity === 'approval_steps') return 'approvals';
-  return 'admin';
-}
+/** entity → module map for RBAC of generic reads + writes. */
+var ENTITY_MODULE = {
+  projects: 'masters', clients: 'masters', suppliers: 'masters',
+  material_requisitions: 'procurement', mr_lines: 'procurement', purchase_orders: 'procurement', po_lines: 'procurement',
+  goods_received_notes: 'warehouse', grn_lines: 'warehouse', stock_items: 'warehouse', material_issues: 'warehouse', miv_lines: 'warehouse',
+  payment_vouchers: 'finance', receipt_vouchers: 'finance', expenses: 'finance',
+  project_charters: 'techoffice', variation_orders: 'techoffice', interim_payment_certs: 'techoffice', ncrs: 'techoffice',
+  approval_requests: 'approvals', approval_steps: 'approvals'
+};
+function moduleOf_(entity) { return ENTITY_MODULE[entity] || 'admin'; }
 
 function dispatch_(action, body, authCtx) {
   var actor = authCtx.user.email;
@@ -131,6 +132,9 @@ function dispatch_(action, body, authCtx) {
     case 'admin.permission.create':
       requirePermission(authCtx, { module: 'admin', entity: 'permissions', action: 'admin' });
       return logged_(authCtx, 'create', 'admin', 'permissions', dbInsert('permissions', body.record || body, actor));
+    case 'admin.reseed':
+      requirePermission(authCtx, { module: 'admin', entity: '*', action: 'admin' });
+      return logged_(authCtx, 'reseed', 'admin', 'setup', initializeWorkbook());
     case 'admin.doa.upsert': {
       requirePermission(authCtx, { module: 'admin', entity: 'doa_bands', action: 'admin' });
       var d = body.record || body;
@@ -155,6 +159,63 @@ function dispatch_(action, body, authCtx) {
     case 'approvals.get':
       requireFields(body, ['request_id']);
       return { request: dbGet('approval_requests', body.request_id), steps: dbList('approval_steps', { request_id: body.request_id }) };
+
+    /* ====================== PHASE 2: value chain ====================== */
+    case 'doc.submit': {
+      requireFields(body, ['entity', 'id']);
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'submit', projectId: body.project_id });
+      return submitDocument(body.entity, body.id, authCtx);
+    }
+
+    // Procurement
+    case 'procurement.mr.create':
+      requirePermission(authCtx, { module: 'procurement', entity: 'material_requisitions', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'procurement', 'material_requisitions', Procurement.createMR(body.record || body, authCtx));
+    case 'procurement.po.create':
+      requirePermission(authCtx, { module: 'procurement', entity: 'purchase_orders', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'procurement', 'purchase_orders', Procurement.createPO(body.record || body, authCtx));
+
+    // Warehouse
+    case 'wh.grn.create':
+      requirePermission(authCtx, { module: 'warehouse', entity: 'goods_received_notes', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'warehouse', 'goods_received_notes', Warehouse.createGRN(body.record || body, authCtx));
+    case 'wh.miv.create':
+      requirePermission(authCtx, { module: 'warehouse', entity: 'material_issues', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'warehouse', 'material_issues', Warehouse.createMIV(body.record || body, authCtx));
+    case 'wh.stock.upsert':
+      requirePermission(authCtx, { module: 'warehouse', entity: 'stock_items', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'upsert', 'warehouse', 'stock_items', Warehouse.upsertStock(body.record || body, authCtx));
+    case 'wh.lowstock':
+      requirePermission(authCtx, { module: 'warehouse', entity: 'stock_items', action: 'view', projectId: body.project_id });
+      return Warehouse.lowStock(body.project_id || null);
+
+    // Finance
+    case 'fin.pv.create':
+      requirePermission(authCtx, { module: 'finance', entity: 'payment_vouchers', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'finance', 'payment_vouchers', Finance.createPV(body.record || body, authCtx));
+    case 'fin.rv.create':
+      requirePermission(authCtx, { module: 'finance', entity: 'receipt_vouchers', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'finance', 'receipt_vouchers', Finance.createRV(body.record || body, authCtx));
+    case 'fin.expense.create':
+      requirePermission(authCtx, { module: 'finance', entity: 'expenses', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'finance', 'expenses', Finance.createExpense(body.record || body, authCtx));
+
+    // Technical Office
+    case 'tech.charter.create':
+      requirePermission(authCtx, { module: 'techoffice', entity: 'project_charters', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'techoffice', 'project_charters', TechOffice.createCharter(body.record || body, authCtx));
+    case 'tech.vor.create':
+      requirePermission(authCtx, { module: 'techoffice', entity: 'variation_orders', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'techoffice', 'variation_orders', TechOffice.createVOR(body.record || body, authCtx));
+    case 'tech.ipc.create':
+      requirePermission(authCtx, { module: 'techoffice', entity: 'interim_payment_certs', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'techoffice', 'interim_payment_certs', TechOffice.createIPC(body.record || body, authCtx));
+    case 'tech.ncr.create':
+      requirePermission(authCtx, { module: 'techoffice', entity: 'ncrs', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'techoffice', 'ncrs', TechOffice.createNCR(body.record || body, authCtx));
+    case 'tech.ncr.dispose':
+      requireFields(body, ['id', 'disposition']);
+      return logged_(authCtx, 'dispose', 'techoffice', 'ncrs', TechOffice.disposeNCR(body.id, body.disposition, body.root_cause, authCtx));
 
     default:
       throw new AppError('UNKNOWN_ACTION', 'Unknown action: ' + action);

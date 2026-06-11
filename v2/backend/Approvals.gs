@@ -105,6 +105,7 @@ function decideApproval(requestId, authCtx, decision, comment) {
         approvals_json: JSON.stringify(approvals.concat([{ user: authCtx.user.id, role: matched[0], decision: 'reject', at: nowIso() }])),
         comment: comment || '' }, authCtx.user.email);
       dbUpdate('approval_requests', requestId, { status: 'Rejected', updated_at: nowIso(), closed_at: nowIso() }, authCtx.user.email);
+      applyApprovalOutcome_(req, 'Rejected');
       audit({ user_id: authCtx.user.id, user_email: authCtx.user.email, action: 'approval_rejected', module: 'approvals',
         entity: req.entity, record_id: req.record_id, project_id: req.project_id, amount: req.amount, note: comment });
       return finalizeAndReturn_(requestId);
@@ -136,6 +137,7 @@ function decideApproval(requestId, authCtx, decision, comment) {
       var next = Number(step.step_no) + 1;
       if (next > Number(req.total_steps)) {
         dbUpdate('approval_requests', requestId, { status: 'Approved', current_step: req.total_steps, updated_at: nowIso(), closed_at: nowIso() }, authCtx.user.email);
+        applyApprovalOutcome_(req, 'Approved');
         audit({ user_id: authCtx.user.id, user_email: authCtx.user.email, action: 'approval_completed', module: 'approvals', entity: req.entity, record_id: req.record_id });
       } else {
         // activate next step
@@ -146,6 +148,18 @@ function decideApproval(requestId, authCtx, decision, comment) {
     }
     return finalizeAndReturn_(requestId);
   });
+}
+
+/**
+ * Reflect an approval decision back onto the underlying document's status.
+ * Generic: any entity with a 'status' column gets set to Approved/Rejected.
+ * Never throws into the approval flow.
+ */
+function applyApprovalOutcome_(req, outcome) {
+  try {
+    var rec = dbGet(req.entity, req.record_id);
+    if (rec && rec.hasOwnProperty('status')) dbUpdate(req.entity, req.record_id, { status: outcome }, 'approval-engine');
+  } catch (e) { console.error('applyApprovalOutcome failed: ' + (e && e.message)); }
 }
 
 function finalizeAndReturn_(requestId) {

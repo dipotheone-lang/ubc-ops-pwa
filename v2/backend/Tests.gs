@@ -5,7 +5,8 @@
  */
 function runAllTests() {
   initializeWorkbook(); // idempotent
-  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD];
+  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD,
+    t_phase2Procurement, t_phase2GrnStock];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -83,6 +84,51 @@ function t_approvalChain() {
   dbList('approval_steps', { request_id: created.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
   dbDelete('approval_requests', created.request.id);
   rmUser_(initiator); rmUser_(cm); rmUser_(pm); dbDelete('clients', client.id);
+}
+
+function t_phase2Procurement() {
+  var client = dbInsert('clients', { client_code: 'P2', name_en: 'P2 Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'P2-PRJ', client_id: client.id, name_en: 'P2 Proj', status: 'Active', currency: 'EGP' }, 'test');
+  var pm = mkUser_('SITE_ENGINEER');
+  var res = Procurement.createMR({ project_id: proj.id, required_date: '2026-02-01', lines: [
+    { description: 'Cement', unit: 'bag', qty: 100, est_unit_price: 300 },
+    { description: 'Steel', unit: 'ton', qty: 1, est_unit_price: 20000 }] }, pm);
+  assertEq_(res.header.est_total, 50000, 'MR est_total');
+  assertEq_(res.lines.length, 2, 'MR lines stored');
+  var sub = submitDocument('material_requisitions', res.header.id, pm);
+  assertEq_(dbGet('material_requisitions', res.header.id).status, 'Submitted', 'MR submitted');
+  // 50k → band needs CONSTRUCTION_MGR + PROCUREMENT_MGR (all)
+  var cm = mkUser_('CONSTRUCTION_MGR'), pmgr = mkUser_('PROCUREMENT_MGR');
+  decideApproval(sub.request.id, cm, 'approve', 'ok');
+  assertEq_(dbGet('material_requisitions', res.header.id).status, 'Submitted', 'still submitted after 1 of 2');
+  var r2 = decideApproval(sub.request.id, pmgr, 'approve', 'ok');
+  assertEq_(r2.request.status, 'Approved', 'approval complete');
+  assertEq_(dbGet('material_requisitions', res.header.id).status, 'Approved', 'MR status flipped via outcome hook');
+  dbList('mr_lines', { mr_id: res.header.id }).forEach(function (l) { dbDelete('mr_lines', l.id); });
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id); dbDelete('material_requisitions', res.header.id);
+  rmUser_(pm); rmUser_(cm); rmUser_(pmgr); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_phase2GrnStock() {
+  var client = dbInsert('clients', { client_code: 'P2B', name_en: 'P2B', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'P2B-PRJ', client_id: client.id, name_en: 'P2B Proj', status: 'Active' }, 'test');
+  var sk = mkUser_('STOREKEEPER');
+  Warehouse.createGRN({ project_id: proj.id, received_date: '2026-02-02', condition: 'Good', lines: [
+    { item_code: 'CEM-001', description: 'Cement', unit: 'bag', qty_ordered: 100, qty_received: 100, qty_accepted: 100 }] }, sk);
+  var stock = dbList('stock_items', { project_id: proj.id, item_code: 'CEM-001' });
+  assertEq_(stock.length, 1, 'stock item created from GRN');
+  assertEq_(stock[0].qty_on_hand, 100, 'stock on hand from accepted qty');
+  // issue 30 → on hand 70
+  Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'Site A', lines: [
+    { item_code: 'CEM-001', description: 'Cement', unit: 'bag', qty: 30 }] }, sk);
+  assertEq_(dbList('stock_items', { project_id: proj.id, item_code: 'CEM-001' })[0].qty_on_hand, 70, 'stock decremented by MIV');
+  // cleanup
+  dbList('stock_items', { project_id: proj.id }).forEach(function (s) { dbDelete('stock_items', s.id); });
+  ['goods_received_notes', 'grn_lines', 'material_issues', 'miv_lines'].forEach(function (e) {
+    dbList(e).forEach(function (r) { if (String(r.project_id) === String(proj.id) || true) { /* lines lack project_id */ } });
+  });
+  rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
 }
 
 function t_approvalSoD() {
