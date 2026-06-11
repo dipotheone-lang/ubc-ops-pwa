@@ -122,6 +122,11 @@
     if (canModule('warehouse')) items.push(['warehouse', t('warehouse'), true]);
     if (canModule('finance')) items.push(['finance', t('finance'), true]);
     if (canModule('techoffice')) items.push(['techoffice', t('techoffice'), true]);
+    if (canModule('bd')) items.push(['bd', t('bd'), true]);
+    if (canModule('tendering')) items.push(['tendering', t('tendering'), true]);
+    if (canModule('construction')) items.push(['construction', t('construction'), true]);
+    if (canModule('correspondence')) items.push(['correspondence', t('correspondence'), true]);
+    if (canModule('prequal')) items.push(['prequal', t('prequal'), true]);
     if (can('admin', 'users', 'view') || can('admin', 'users', 'admin')) items.push(['users', t('users'), true]);
     items.push(['settings', t('settings'), true]);
     items.forEach(function (it) {
@@ -142,7 +147,12 @@
       procurement: function () { return renderModule('procurement'); },
       warehouse: function () { return renderModule('warehouse'); },
       finance: function () { return renderModule('finance'); },
-      techoffice: function () { return renderModule('techoffice'); } })[view] || vDashboard;
+      techoffice: function () { return renderModule('techoffice'); },
+      bd: function () { return renderModule('bd'); },
+      tendering: function () { return renderModule('tendering'); },
+      construction: function () { return renderModule('construction'); },
+      correspondence: function () { return renderModule('correspondence'); },
+      prequal: function () { return renderModule('prequal'); } })[view] || vDashboard;
     Promise.resolve(fn()).then(function (node) { UI.clear(main); main.appendChild(node); })
       .catch(function (e) { UI.clear(main); main.appendChild(el('div', { class: 'error-box', text: e.message })); });
     // refresh nav active state
@@ -353,6 +363,46 @@
       { key: 'ncr', entity: 'ncrs', action: 'tech.ncr.create',
         fields: [['project_id', 'project', true], ['category', 'select', true, ['Minor', 'Major', 'Critical']], ['description', 'textarea', true], ['location', 'text']],
         cols: [['ncr_number', '#'], ['status', 'status'], ['category', '']] }
+    ] },
+    bd: { docs: [
+      { key: 'opp', entity: 'opportunities', action: 'bd.opp.create',
+        fields: [['client_id', 'client', true], ['title', 'text', true], ['sector', 'text'], ['estimated_value', 'number'], ['stage', 'select', false, ['Lead', 'Qualified', 'Proposal', 'Negotiation']], ['probability', 'number'], ['source', 'text'], ['notes', 'textarea']],
+        cols: [['opp_number', '#'], ['title', ''], ['stage', ''], ['estimated_value', 'total'], ['status', 'status']],
+        rowButtons: [
+          { label: 'won', action: 'bd.opp.advance', cls: 'primary', when: function (r) { return r.status === 'Open'; }, body: function (r) { return { id: r.id, stage: 'Won' }; } },
+          { label: 'mark_lost', action: 'bd.opp.advance', cls: 'danger', when: function (r) { return r.status === 'Open'; }, body: function (r) { return { id: r.id, stage: 'Lost' }; } }
+        ] },
+      { key: 'interaction', entity: 'interactions', action: 'bd.interaction.create',
+        fields: [['client_id', 'client'], ['type', 'select', true, ['Call', 'Meeting', 'Email', 'Site Visit', 'Other']], ['interaction_date', 'date', true], ['contact_name', 'text'], ['summary', 'textarea'], ['next_action', 'text']],
+        cols: [['interaction_date', 'date'], ['type', ''], ['contact_name', ''], ['summary', '']] }
+    ] },
+    tendering: { docs: [
+      { key: 'tender', entity: 'tenders', action: 'pts.tender.create', submittable: true,
+        fields: [['client_id', 'client', true], ['title', 'text', true], ['scope', 'textarea'], ['estimated_value', 'number'], ['submission_deadline', 'date'], ['go_decision', 'select', false, ['Go', 'No-Go']]],
+        lines: ['description', 'qty', 'unit_cost'], cols: [['tender_number', '#'], ['title', ''], ['estimated_value', 'total'], ['status', 'status']],
+        rowButtons: [
+          { label: 'award', action: 'pts.tender.award', cls: 'primary', when: function (r) { return ['Approved', 'Submitted', 'Registered'].indexOf(r.status) !== -1; }, body: function (r) { return { id: r.id, outcome: 'Awarded' }; } },
+          { label: 'mark_lost', action: 'pts.tender.award', cls: 'danger', when: function (r) { return ['Approved', 'Submitted', 'Registered'].indexOf(r.status) !== -1; }, body: function (r) { return { id: r.id, outcome: 'Lost' }; } }
+        ] }
+    ] },
+    construction: { docs: [
+      { key: 'dsr', entity: 'daily_site_reports', action: 'con.dsr.create',
+        fields: [['project_id', 'project', true], ['report_date', 'date', true], ['weather', 'text'], ['manpower_count', 'number'], ['equipment_count', 'number'], ['progress_pct', 'number'], ['activities', 'textarea'], ['delays', 'textarea']],
+        cols: [['dsr_number', '#'], ['report_date', 'date'], ['progress_pct', ''], ['manpower_count', '']] },
+      { key: 'si', entity: 'site_instructions', action: 'con.si.create',
+        fields: [['project_id', 'project', true], ['instruction_date', 'date'], ['issued_to', 'text'], ['subject', 'text', true], ['details', 'textarea']],
+        cols: [['si_number', '#'], ['subject', ''], ['status', 'status']] }
+    ] },
+    correspondence: { docs: [
+      { key: 'letter', entity: 'correspondence', action: 'corr.create',
+        fields: [['type', 'select', true, ['Delegation', 'PaymentDemand', 'ReceiptAck', 'SampleSubmission', 'General']], ['recipient', 'text', true], ['subject_ar', 'text'], ['body_ar', 'textarea'], ['reference', 'text'], ['letter_date', 'date'], ['project_id', 'project']],
+        cols: [['letter_number', '#'], ['type', ''], ['recipient', ''], ['status', 'status']],
+        rowButtons: [{ label: 'issue', action: 'corr.issue', cls: 'primary', when: function (r) { return r.status === 'Draft'; }, body: function (r) { return { id: r.id }; } }] }
+    ] },
+    prequal: { docs: [
+      { key: 'prq', entity: 'prequalifications', action: 'prequal.create',
+        fields: [['client_id', 'client', true], ['submitted_date', 'date'], ['portal', 'text'], ['scope', 'textarea'], ['status', 'select', false, ['Draft', 'Submitted', 'Approved', 'Rejected', 'Expired']]],
+        cols: [['prq_number', '#'], ['portal', ''], ['status', 'status']] }
     ] }
   };
 
@@ -447,6 +497,12 @@
         if (doc.submittable && String(r.status) === 'Draft' && canAct(moduleKey, doc.entity, 'submit'))
           box.appendChild(el('button', { class: 'btn small primary', text: t('submit'), onclick: function () { submitDoc(doc.entity, r.id, moduleKey); } }));
         else if (r.approval_id || String(r.status) === 'Submitted') box.appendChild(el('span', { class: 'badge ok', text: r.status }));
+        (doc.rowButtons || []).forEach(function (rb) {
+          if (rb.when && !rb.when(r)) return;
+          box.appendChild(el('button', { class: 'btn small ' + (rb.cls || ''), text: t(rb.label), onclick: function () {
+            API.act(rb.action, rb.body(r)).then(function () { toast('✓', 'success'); go(moduleKey); }).catch(function (e) { toast(e.message, 'error'); });
+          } }));
+        });
         return box;
       } });
       UI.clear(listHolder); listHolder.appendChild(card(t('records'), UI.table(rows, cols)));

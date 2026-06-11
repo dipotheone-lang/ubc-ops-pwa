@@ -244,6 +244,62 @@ var SCHEMA = {
       'root_cause', 'raised_by', 'closed_by', 'status'].concat(AUDIT_COLUMNS),
     enums: { category: ['Minor', 'Major', 'Critical'], disposition: ['', 'Use-As-Is', 'Repair', 'Rework', 'Reject'],
       status: ['Open', 'Dispositioned', 'Closed'] }
+  },
+
+  /* ============== PHASE 3 — commercial & site layer ============== */
+
+  /* ---- Business Development / CRM ---- */
+  opportunities: {
+    sheet: 'Opportunities', pk: 'id', fk: { client_id: 'clients' },
+    columns: ['id', 'opp_number', 'client_id', 'title', 'sector', 'estimated_value', 'currency',
+      'stage', 'probability', 'source', 'owner_user', 'status', 'notes'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'], status: ['Open', 'Won', 'Lost'],
+      stage: ['Lead', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'] }
+  },
+  interactions: {
+    sheet: 'Interactions', pk: 'id', fk: { opportunity_id: 'opportunities', client_id: 'clients' },
+    columns: ['id', 'opportunity_id', 'client_id', 'type', 'interaction_date', 'contact_name', 'summary', 'next_action'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Call', 'Meeting', 'Email', 'Site Visit', 'Other'] }
+  },
+
+  /* ---- Proposals, Sales & Tendering ---- */
+  tenders: {
+    sheet: 'Tenders', pk: 'id', fk: { client_id: 'clients', opportunity_id: 'opportunities' },
+    columns: ['id', 'tender_number', 'client_id', 'opportunity_id', 'title', 'scope', 'estimated_value', 'currency',
+      'submission_deadline', 'go_decision', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { currency: ['EGP', 'USD', 'EUR', 'GBP'], go_decision: ['', 'Go', 'No-Go'],
+      status: ['Registered', 'Submitted', 'Approved', 'Rejected', 'Awarded', 'Lost', 'Cancelled'] }
+  },
+  tender_costlines: {
+    sheet: 'TenderCostLines', pk: 'id', fk: { tender_id: 'tenders' },
+    columns: ['id', 'tender_id', 'line_no', 'description', 'qty', 'unit_cost', 'total'].concat(AUDIT_COLUMNS)
+  },
+
+  /* ---- Construction Site Operations ---- */
+  daily_site_reports: {
+    sheet: 'DailySiteReports', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'dsr_number', 'project_id', 'report_date', 'weather', 'manpower_count', 'equipment_count',
+      'activities', 'progress_pct', 'delays', 'photo_url', 'logged_by'].concat(AUDIT_COLUMNS)
+  },
+  site_instructions: {
+    sheet: 'SiteInstructions', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'si_number', 'project_id', 'instruction_date', 'issued_to', 'subject', 'details', 'status'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Open', 'Acknowledged', 'Closed'] }
+  },
+
+  /* ---- Official Arabic Correspondence ---- */
+  correspondence: {
+    sheet: 'Correspondence', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'letter_number', 'type', 'project_id', 'recipient', 'subject_ar', 'body_ar', 'reference',
+      'status', 'signed_by', 'letter_date'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Delegation', 'PaymentDemand', 'ReceiptAck', 'SampleSubmission', 'General'], status: ['Draft', 'Issued'] }
+  },
+
+  /* ---- UBC-as-supplier Prequalification ---- */
+  prequalifications: {
+    sheet: 'Prequalifications', pk: 'id', fk: { client_id: 'clients' },
+    columns: ['id', 'prq_number', 'client_id', 'submitted_date', 'portal', 'scope', 'status', 'notes'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Expired'] }
   }
 };
 
@@ -282,6 +338,7 @@ var SEED_ROLES = [
   ['TECH_OFFICE_ENGINEER', 'Technical Office Engineer', 'مهندس مكتب فني'],
   ['STOREKEEPER', 'Storekeeper', 'أمين مخزن'],
   ['SITE_ADMIN', 'Site Administrator', 'إداري موقع'],
+  ['ESTIMATOR', 'Estimator', 'مقدّر تكاليف'],
   ['EMPLOYEE', 'Employee', 'موظف'],
   ['ADMIN', 'System Administrator', 'مدير النظام']
 ];
@@ -378,7 +435,31 @@ var SEED_PERMISSIONS = [
   ['QS', 'techoffice', '*', 'view', 'PROJECT'],
   ['QAQC_ENGINEER', 'techoffice', 'ncrs', 'create', 'PROJECT'],
   ['QAQC_ENGINEER', 'techoffice', 'ncrs', 'edit', 'PROJECT'],
-  ['QAQC_ENGINEER', 'techoffice', '*', 'view', 'PROJECT']
+  ['QAQC_ENGINEER', 'techoffice', '*', 'view', 'PROJECT'],
+
+  /* ---- Phase 3: Business Development / CRM ---- */
+  ['BD_MGR', 'bd', '*', 'view', 'GLOBAL'], ['BD_MGR', 'bd', '*', 'create', 'GLOBAL'], ['BD_MGR', 'bd', '*', 'edit', 'GLOBAL'],
+  ['PTS_HEAD', 'bd', '*', 'view', 'GLOBAL'], ['PTS_HEAD', 'bd', 'opportunities', 'create', 'GLOBAL'],
+
+  /* ---- Phase 3: Proposals, Sales & Tendering ---- */
+  ['PTS_HEAD', 'tendering', '*', 'view', 'GLOBAL'], ['PTS_HEAD', 'tendering', '*', 'create', 'GLOBAL'],
+  ['PTS_HEAD', 'tendering', '*', 'edit', 'GLOBAL'], ['PTS_HEAD', 'tendering', '*', 'submit', 'GLOBAL'],
+  ['ESTIMATOR', 'tendering', '*', 'view', 'GLOBAL'], ['ESTIMATOR', 'tendering', 'tender_costlines', 'create', 'GLOBAL'],
+
+  /* ---- Phase 3: Construction Site Operations ---- */
+  ['CONSTRUCTION_MGR', 'construction', '*', 'view', 'GLOBAL'], ['CONSTRUCTION_MGR', 'construction', '*', 'create', 'GLOBAL'], ['CONSTRUCTION_MGR', 'construction', '*', 'edit', 'GLOBAL'],
+  ['PROJECT_MGR', 'construction', '*', 'view', 'PROJECT'], ['PROJECT_MGR', 'construction', '*', 'create', 'PROJECT'], ['PROJECT_MGR', 'construction', '*', 'edit', 'PROJECT'],
+  ['SITE_ENGINEER', 'construction', '*', 'view', 'PROJECT'], ['SITE_ENGINEER', 'construction', 'daily_site_reports', 'create', 'PROJECT'],
+
+  /* ---- Phase 3: Correspondence ---- */
+  ['SITE_ADMIN', 'correspondence', '*', 'view', 'GLOBAL'], ['SITE_ADMIN', 'correspondence', '*', 'create', 'GLOBAL'],
+  ['FINANCE_CONTROLLER', 'correspondence', '*', 'view', 'GLOBAL'], ['FINANCE_CONTROLLER', 'correspondence', '*', 'create', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'correspondence', '*', 'create', 'GLOBAL'],
+
+  /* ---- Phase 3: UBC-as-supplier Prequalification ---- */
+  ['PTS_HEAD', 'prequal', '*', 'view', 'GLOBAL'], ['PTS_HEAD', 'prequal', '*', 'create', 'GLOBAL'], ['PTS_HEAD', 'prequal', '*', 'edit', 'GLOBAL'],
+  ['BD_MGR', 'prequal', '*', 'view', 'GLOBAL'], ['BD_MGR', 'prequal', '*', 'create', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'prequal', '*', 'view', 'GLOBAL']
 ];
 
 /**

@@ -49,6 +49,10 @@ var ENTITY_MODULE = {
   goods_received_notes: 'warehouse', grn_lines: 'warehouse', stock_items: 'warehouse', material_issues: 'warehouse', miv_lines: 'warehouse',
   payment_vouchers: 'finance', receipt_vouchers: 'finance', expenses: 'finance',
   project_charters: 'techoffice', variation_orders: 'techoffice', interim_payment_certs: 'techoffice', ncrs: 'techoffice',
+  opportunities: 'bd', interactions: 'bd',
+  tenders: 'tendering', tender_costlines: 'tendering',
+  daily_site_reports: 'construction', site_instructions: 'construction',
+  correspondence: 'correspondence', prequalifications: 'prequal',
   approval_requests: 'approvals', approval_steps: 'approvals'
 };
 function moduleOf_(entity) { return ENTITY_MODULE[entity] || 'admin'; }
@@ -216,6 +220,50 @@ function dispatch_(action, body, authCtx) {
     case 'tech.ncr.dispose':
       requireFields(body, ['id', 'disposition']);
       return logged_(authCtx, 'dispose', 'techoffice', 'ncrs', TechOffice.disposeNCR(body.id, body.disposition, body.root_cause, authCtx));
+
+    /* ====================== PHASE 3: commercial & site ====================== */
+    // Business Development
+    case 'bd.opp.create':
+      requirePermission(authCtx, { module: 'bd', entity: 'opportunities', action: 'create' });
+      return logged_(authCtx, 'create', 'bd', 'opportunities', BD.createOpportunity(body.record || body, authCtx));
+    case 'bd.opp.advance':
+      requireFields(body, ['id', 'stage']);
+      requirePermission(authCtx, { module: 'bd', entity: 'opportunities', action: 'edit' });
+      return logged_(authCtx, 'advance', 'bd', 'opportunities', BD.advanceOpportunity(body.id, body.stage, authCtx));
+    case 'bd.interaction.create':
+      requirePermission(authCtx, { module: 'bd', entity: 'interactions', action: 'create' });
+      return logged_(authCtx, 'create', 'bd', 'interactions', BD.logInteraction(body.record || body, authCtx));
+
+    // Tendering
+    case 'pts.tender.create':
+      requirePermission(authCtx, { module: 'tendering', entity: 'tenders', action: 'create' });
+      return logged_(authCtx, 'create', 'tendering', 'tenders', Tendering.createTender(body.record || body, authCtx));
+    case 'pts.tender.award':
+      requireFields(body, ['id', 'outcome']);
+      requirePermission(authCtx, { module: 'tendering', entity: 'tenders', action: 'edit' });
+      return logged_(authCtx, 'award', 'tendering', 'tenders', Tendering.award(body.id, body.outcome, authCtx));
+
+    // Construction
+    case 'con.dsr.create':
+      requirePermission(authCtx, { module: 'construction', entity: 'daily_site_reports', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'construction', 'daily_site_reports', Construction.createDailyReport(body.record || body, authCtx));
+    case 'con.si.create':
+      requirePermission(authCtx, { module: 'construction', entity: 'site_instructions', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'construction', 'site_instructions', Construction.createSiteInstruction(body.record || body, authCtx));
+
+    // Correspondence
+    case 'corr.create':
+      requirePermission(authCtx, { module: 'correspondence', entity: 'correspondence', action: 'create' });
+      return logged_(authCtx, 'create', 'correspondence', 'correspondence', Correspondence.create(body.record || body, authCtx));
+    case 'corr.issue':
+      requireFields(body, ['id']);
+      requirePermission(authCtx, { module: 'correspondence', entity: 'correspondence', action: 'create' });
+      return logged_(authCtx, 'issue', 'correspondence', 'correspondence', Correspondence.issue(body.id, authCtx));
+
+    // Prequalification
+    case 'prequal.create':
+      requirePermission(authCtx, { module: 'prequal', entity: 'prequalifications', action: 'create' });
+      return logged_(authCtx, 'create', 'prequal', 'prequalifications', Prequal.create(body.record || body, authCtx));
 
     default:
       throw new AppError('UNKNOWN_ACTION', 'Unknown action: ' + action);

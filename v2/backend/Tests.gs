@@ -6,7 +6,7 @@
 function runAllTests() {
   initializeWorkbook(); // idempotent
   var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD,
-    t_phase2Procurement, t_phase2GrnStock];
+    t_phase2Procurement, t_phase2GrnStock, t_phase3Tender];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -129,6 +129,27 @@ function t_phase2GrnStock() {
     dbList(e).forEach(function (r) { if (String(r.project_id) === String(proj.id) || true) { /* lines lack project_id */ } });
   });
   rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_phase3Tender() {
+  var client = dbInsert('clients', { client_code: 'P3', name_en: 'P3 Client', status: 'Active' }, 'test');
+  var initiator = mkUser_('BD_MGR');
+  var res = Tendering.createTender({ client_id: client.id, title: 'Big Tender', estimated_value: 5000000, currency: 'EGP',
+    lines: [{ description: 'Civil', qty: 1, unit_cost: 3000000 }, { description: 'MEP', qty: 1, unit_cost: 2000000 }] }, initiator);
+  assertEq_(res.header.estimated_value, 5000000, 'tender value');
+  assertEq_(res.lines.length, 2, 'cost lines');
+  var sub = submitDocument('tenders', res.header.id, initiator);
+  var roles = JSON.parse(sub.steps[0].roles_json);
+  assert_(roles.indexOf('PTS_HEAD') !== -1 && roles.indexOf('CFO') !== -1, 'band = PTS_HEAD + CFO for 5M');
+  var pts = mkUser_('PTS_HEAD'), cfo = mkUser_('CFO');
+  decideApproval(sub.request.id, pts, 'approve', 'ok');
+  var r2 = decideApproval(sub.request.id, cfo, 'approve', 'ok');
+  assertEq_(r2.request.status, 'Approved', 'tender approval complete');
+  assertEq_(dbGet('tenders', res.header.id).status, 'Approved', 'tender status flipped');
+  dbList('tender_costlines', { tender_id: res.header.id }).forEach(function (l) { dbDelete('tender_costlines', l.id); });
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id); dbDelete('tenders', res.header.id);
+  rmUser_(initiator); rmUser_(pts); rmUser_(cfo); dbDelete('clients', client.id);
 }
 
 function t_approvalSoD() {

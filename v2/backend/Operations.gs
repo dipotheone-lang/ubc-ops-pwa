@@ -29,7 +29,8 @@ var SUBMIT_MAP = {
   payment_vouchers: { domain: function (r) { return r.payment_method === 'Cheque' ? 'payment_cheque' : 'payment_transfer'; }, action: 'pay', amount: 'amount' },
   variation_orders: { domain: 'vor', action: 'approve', amount: 'amount' },
   interim_payment_certs: { domain: 'einvoice', action: 'issue', amount: 'net_amount' },
-  project_charters: { domain: 'charter', action: 'sign', amount: 'budget' }
+  project_charters: { domain: 'charter', action: 'sign', amount: 'budget' },
+  tenders: { domain: 'tender_submit', action: 'approve', amount: 'estimated_value' }
 };
 
 /** Submit a draft document into the approval workflow. */

@@ -25,7 +25,10 @@
       mr: 'Material Requisition', po: 'Purchase Order', grn: 'Goods Received', miv: 'Material Issue', stock: 'Stock',
       pv: 'Payment Voucher', rv: 'Receipt Voucher', expense: 'Expense', charter: 'Project Charter', vor: 'Variation Order',
       ipc: 'Interim Payment Cert', ncr: 'NCR', total: 'Total', date: 'Date', priority: 'Priority', submitted: 'Submitted ✓',
-      view_approval: 'Approval', remove: 'Remove'
+      view_approval: 'Approval', remove: 'Remove',
+      bd: 'Business Dev', tendering: 'Tendering', construction: 'Construction', correspondence: 'Correspondence', prequal: 'Prequalification',
+      opp: 'Opportunity', interaction: 'Interaction', tender: 'Tender', dsr: 'Daily Report', si: 'Site Instruction',
+      letter: 'Letter', prq: 'Prequalification', award: 'Award', mark_lost: 'Mark Lost', won: 'Won', issue: 'Issue', advance: 'Advance'
     },
     ar: {
       app: 'عمليات الأخوة المتحدين', login: 'تسجيل الدخول', email: 'البريد الإلكتروني', password: 'كلمة المرور',
@@ -47,7 +50,10 @@
       mr: 'طلب شراء', po: 'أمر توريد', grn: 'إذن استلام', miv: 'إذن صرف', stock: 'المخزون',
       pv: 'إذن صرف نقدي', rv: 'إذن استلام نقدي', expense: 'مصروف', charter: 'ميثاق المشروع', vor: 'أمر تغيير',
       ipc: 'مستخلص', ncr: 'تقرير عدم مطابقة', total: 'الإجمالي', date: 'التاريخ', priority: 'الأولوية', submitted: 'تم الإرسال ✓',
-      view_approval: 'الاعتماد', remove: 'حذف'
+      view_approval: 'الاعتماد', remove: 'حذف',
+      bd: 'تطوير الأعمال', tendering: 'العطاءات', construction: 'الإنشاءات', correspondence: 'المراسلات', prequal: 'التأهيل',
+      opp: 'فرصة', interaction: 'تواصل', tender: 'عطاء', dsr: 'تقرير يومي', si: 'تعليمات موقع',
+      letter: 'خطاب', prq: 'تأهيل', award: 'ترسية', mark_lost: 'خسارة', won: 'فوز', issue: 'إصدار', advance: 'ترقية'
     }
   };
 

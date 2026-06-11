@@ -1,5 +1,5 @@
 /** service-worker.js — app-shell cache for the v2 PWA. */
-var CACHE = 'ubc-ops-v2-3';
+var CACHE = 'ubc-ops-v2-4';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/i18n.js', './js/api.js', './js/ui.js', './js/app.js'];
 
