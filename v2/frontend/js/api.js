@@ -6,8 +6,10 @@
 (function () {
   'use strict';
 
+  // Default to the deployed v2 Web App; overridable via Settings (localStorage).
+  var DEFAULT_BASE = 'https://script.google.com/macros/s/AKfycbwGnEeLqPeSXx4KX4MSYPwF_ZmDXEYZdOjzr5jEuLlCopl3Aw7yfoy7q8h3qlBYqhbE/exec';
   function base() {
-    var b = localStorage.getItem('ubc_api_base') || '';
+    var b = localStorage.getItem('ubc_api_base') || DEFAULT_BASE;
     if (!b) throw new Error('API URL not configured.');
     return b;
   }
@@ -32,7 +34,7 @@
 
   window.API = {
     setBase: function (b) { localStorage.setItem('ubc_api_base', b); },
-    getBase: function () { return localStorage.getItem('ubc_api_base') || ''; },
+    getBase: function () { return localStorage.getItem('ubc_api_base') || DEFAULT_BASE; },
     setToken: setToken, getToken: token,
     post: post,
     login: function (email, password) { return post({ action: 'auth.login', email: email, password: password }); },
