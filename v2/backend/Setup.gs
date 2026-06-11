@@ -64,20 +64,23 @@ function initializeWorkbook() {
     report.seeded.clients = SEED_CLIENTS.length;
   }
 
-  // 7) users + role assignments (only if none yet)
-  if (dbList('users').length === 0) {
-    SEED_USERS.forEach(function (su) {
-      var u = dbInsert('users', {
+  // 7) users + role assignments — idempotent per email (repairs partial seeds)
+  SEED_USERS.forEach(function (su) {
+    var u = dbFindBy('users', 'email', su[0]);
+    if (!u) {
+      u = dbInsert('users', {
         email: su[0], full_name_en: su[1], full_name_ar: su[2], title_en: su[3],
         active: 'TRUE', default_lang: 'ar', must_reset: 'TRUE'
       }, 'setup');
       var temp = randomToken().slice(0, 8) + 'A1';
       setUserPassword(u.id, temp, { actor: 'setup', mustReset: true });
-      assignRole(u.id, su[4], 'GLOBAL', '', 'setup');
       report.temp_passwords.push(su[0] + ' = ' + temp);
-    });
-    report.seeded.users = SEED_USERS.length;
-  }
+    }
+    // ensure the role assignment exists (this is what the aborted run missed)
+    if (!dbList('role_assignments', { user_id: u.id, role_code: su[4] }).length)
+      assignRole(u.id, su[4], 'GLOBAL', '', 'setup');
+  });
+  report.seeded.users = SEED_USERS.length;
 
   Logger.log(JSON.stringify(report, null, 2));
   Logger.log('\n=== TEMPORARY PASSWORDS (change on first login) ===\n' + report.temp_passwords.join('\n'));

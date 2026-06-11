@@ -15,6 +15,8 @@ import vm from 'node:vm';
 const backend = join(dirname(fileURLToPath(import.meta.url)), '..', 'backend');
 
 /* ----------------------------- mock Sheets ------------------------------ */
+// Mirror Google Sheets coercion: the strings "TRUE"/"FALSE" become real booleans.
+function coerceCell(v) { if (v === 'TRUE') return true; if (v === 'FALSE') return false; return v; }
 class MockRange {
   constructor(sheet, r, c, nr, nc) { this.s = sheet; this.r = r; this.c = c; this.nr = nr; this.nc = nc; }
   getValues() {
@@ -32,7 +34,7 @@ class MockRange {
       const ri = this.r - 1 + i;
       while (this.s.rows.length <= ri) this.s.rows.push([]);
       const row = this.s.rows[ri];
-      for (let j = 0; j < vals[i].length; j++) row[this.c - 1 + j] = vals[i][j];
+      for (let j = 0; j < vals[i].length; j++) row[this.c - 1 + j] = coerceCell(vals[i][j]);
     }
     return this;
   }
@@ -44,7 +46,7 @@ class MockSheet {
   getLastRow() { return this.rows.length; }
   getLastColumn() { return this.rows.reduce((m, r) => Math.max(m, r.length), 0); }
   getRange(r, c, nr, nc) { return new MockRange(this, r, c, nr || 1, nc || 1); }
-  appendRow(arr) { this.rows.push(arr.slice()); return this; }
+  appendRow(arr) { this.rows.push(arr.map(coerceCell)); return this; }
   setFrozenRows(n) { this.frozen = n; return this; }
   getFrozenRows() { return this.frozen; }
   deleteRow(idx) { this.rows.splice(idx - 1, 1); return this; }

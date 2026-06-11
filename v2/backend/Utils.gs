@@ -54,10 +54,21 @@ function validateEnums(entity, record) {
     if (!s.enums.hasOwnProperty(f)) continue;
     var v = record[f];
     if (v === undefined || v === null || v === '') continue;
-    if (s.enums[f].indexOf(String(v)) === -1)
-      throw new AppError('VALIDATION', 'Invalid ' + f + '="' + v + '". Allowed: ' + s.enums[f].join(', '));
+    var allowed = s.enums[f];
+    // Google Sheets coerces the strings "TRUE"/"FALSE" into real booleans, which
+    // read back as lowercase. Normalize before checking so the enum still matches.
+    var isBoolEnum = allowed.length === 2 && allowed.indexOf('TRUE') !== -1 && allowed.indexOf('FALSE') !== -1;
+    var val;
+    if (v === true) val = 'TRUE';
+    else if (v === false) val = 'FALSE';
+    else { val = String(v); if (isBoolEnum) val = val.toUpperCase(); }
+    if (allowed.indexOf(val) === -1)
+      throw new AppError('VALIDATION', 'Invalid ' + f + '="' + v + '". Allowed: ' + allowed.join(', '));
   }
 }
+
+/** Sheets-coercion-tolerant truthiness for TRUE/FALSE flag columns. */
+function truthy(v) { return v === true || String(v).trim().toUpperCase() === 'TRUE'; }
 function pickColumns(entity, record) {
   var cols = getSchema(entity).columns, out = {};
   for (var i = 0; i < cols.length; i++) if (record.hasOwnProperty(cols[i])) out[cols[i]] = record[cols[i]];

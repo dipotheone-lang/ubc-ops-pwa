@@ -30,6 +30,10 @@ function doPost(e) {
       requireFields(body, ['email', 'password']);
       return ok(login(body.email, body.password, ctx));
     }
+    // One-time bootstrap: set an initial password for a seeded user, then
+    // self-locks (Script Property SETUP_CLAIMED). Used immediately post-deploy
+    // so the first admin can sign in without reading the editor log.
+    if (action === 'setup.claim') return ok(setupClaim_(body));
 
     // everything else requires a valid session
     var auth = authenticate(body.token);

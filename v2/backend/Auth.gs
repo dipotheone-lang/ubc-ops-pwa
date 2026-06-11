@@ -37,7 +37,7 @@ function login(email, password, ctx) {
   // Uniform error to avoid user enumeration.
   var bad = function () { throw new AppError('AUTH_FAILED', 'Invalid email or password.', 401); };
   if (!u) { hashPassword(password || '', 'dummy-salt'); bad(); } // timing equalize
-  if (String(u.active) !== 'TRUE') throw new AppError('ACCOUNT_DISABLED', 'Account is disabled.', 403);
+  if (!truthy(u.active)) throw new AppError('ACCOUNT_DISABLED', 'Account is disabled.', 403);
 
   if (u.locked_until && nowMs() < Number(u.locked_until)) {
     throw new AppError('LOCKED', 'Account locked. Try again later.', 423);
@@ -63,7 +63,7 @@ function login(email, password, ctx) {
   getSheet_('sessions').appendRow(objToRow_(headers_(getSheet_('sessions')), session));
   audit({ user_id: u.id, user_email: u.email, action: 'login', module: 'auth', entity: 'users', record_id: u.id, ip: ctx && ctx.ip });
 
-  return { token: token, user: publicUser_(u), roles: getUserRoles(u.id), must_reset: u.must_reset === 'TRUE' };
+  return { token: token, user: publicUser_(u), roles: getUserRoles(u.id), must_reset: truthy(u.must_reset) };
 }
 
 /** Validate a session token → returns { user, roles } or throws 401. */
@@ -71,10 +71,10 @@ function authenticate(token) {
   if (!token) throw new AppError('NO_SESSION', 'Authentication required.', 401);
   var th = sha256Hex(token);
   var s = dbFindBy('sessions', 'token_hash', th);
-  if (!s || String(s.revoked) === 'TRUE') throw new AppError('NO_SESSION', 'Invalid session.', 401);
+  if (!s || truthy(s.revoked)) throw new AppError('NO_SESSION', 'Invalid session.', 401);
   if (nowMs() > Number(s.expires_at)) throw new AppError('SESSION_EXPIRED', 'Session expired. Please log in again.', 401);
   var u = dbGet('users', s.user_id);
-  if (!u || String(u.active) !== 'TRUE') throw new AppError('NO_SESSION', 'Account unavailable.', 401);
+  if (!u || !truthy(u.active)) throw new AppError('NO_SESSION', 'Account unavailable.', 401);
   // touch last_seen (best-effort, not under lock)
   try { dbUpdate('sessions', s.id, { last_seen: nowIso() }, 'system'); } catch (e) {}
   return { session: s, user: u, roles: getUserRoles(u.id) };
@@ -108,7 +108,25 @@ function adminResetPassword(actorEmail, userId) {
   return { temporary_password: temp + 'A1' };
 }
 
+/**
+ * One-time setup claim. While SETUP_CLAIMED is unset, sets the password for an
+ * existing seeded user (e.g. admin@ubcsis.com) and locks itself. Safe because
+ * it only targets pre-seeded users and runs once, right after deployment.
+ */
+function setupClaim_(body) {
+  if (prop('SETUP_CLAIMED', '') === 'TRUE')
+    throw new AppError('SETUP_LOCKED', 'Setup already completed.', 403);
+  requireFields(body, ['email', 'password']);
+  var u = dbFindBy('users', 'email', String(body.email).toLowerCase().trim());
+  if (!u) throw new AppError('NOT_FOUND', 'No seeded user with that email. Run initializeWorkbook first.', 404);
+  checkPasswordPolicy(body.password);
+  setUserPassword(u.id, body.password, { actor: 'setup-claim', mustReset: false });
+  setProp('SETUP_CLAIMED', 'TRUE');
+  audit({ user_id: u.id, user_email: u.email, action: 'setup_claim', module: 'auth', record_id: u.id });
+  return { claimed: true, email: u.email };
+}
+
 function revokeAllSessions_(userId) {
   var rows = dbList('sessions', { user_id: userId });
-  for (var i = 0; i < rows.length; i++) if (String(rows[i].revoked) !== 'TRUE') dbUpdate('sessions', rows[i].id, { revoked: 'TRUE' }, 'system');
+  for (var i = 0; i < rows.length; i++) if (!truthy(rows[i].revoked)) dbUpdate('sessions', rows[i].id, { revoked: 'TRUE' }, 'system');
 }
