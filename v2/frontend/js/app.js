@@ -34,6 +34,7 @@
     document.querySelector('.layout').style.display = 'none';
     root.style.display = 'block';
     var card = el('div', { class: 'login-card' });
+    card.appendChild(el('img', { class: 'login-logo', src: 'assets/ub-logo.png', alt: 'United Brothers Co.' }));
     card.appendChild(el('h1', { text: t('app') }));
     card.appendChild(el('p', { class: 'muted', text: STATE.company ? '' : 'UBcsis — CR 66236' }));
 

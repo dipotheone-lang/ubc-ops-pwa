@@ -1,16 +1,25 @@
 :root{
-  --navy:#0d3b66; --navy2:#13518c; --accent:#f4a259; --bg:#f4f6f9; --card:#fff;
-  --ink:#1c2733; --muted:#6b7886; --line:#e2e8f0; --ok:#1b873f; --err:#c0392b; --radius:12px;
-  --shadow:0 1px 3px rgba(16,24,40,.08);
+  /* United Brothers Co. brand palette (sampled from the company logo) */
+  --navy:#B62F25;          /* brand red — primary (var name kept for compatibility) */
+  --navy2:#8E241C;         /* deep brand red — hover/headers */
+  --brand:#B62F25; --brand-dark:#8E241C; --brand-soft:#F7E7E4;
+  --accent:#C8962C;        /* warm gold accent */
+  --bg:#F6F1EB;            /* warm cream background */
+  --card:#ffffff;
+  --ink:#2A2320; --muted:#8A7F78; --line:#EBE3DA; --ok:#1b873f; --warn:#b7791f; --err:#c0392b;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(60,40,30,.06),0 6px 20px rgba(60,40,30,.06);
+  --grad:linear-gradient(135deg,#B62F25 0%,#8E241C 100%);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 
 /* Topbar */
-.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;background:var(--navy);
-  color:#fff;padding:10px 14px;box-shadow:var(--shadow);padding-top:calc(10px + env(safe-area-inset-top))}
-.brand{font-weight:700;flex:1}
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;background:var(--grad);
+  color:#fff;padding:10px 16px;box-shadow:0 2px 12px rgba(142,36,28,.25);padding-top:calc(10px + env(safe-area-inset-top))}
+.brand{font-weight:700;flex:1;display:flex;align-items:center;gap:10px;letter-spacing:.2px}
+.brand .topbar-mark{width:34px;height:34px;border-radius:9px;background:#fff;padding:3px;object-fit:contain;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .who{font-size:.85rem;opacity:.85}
 .icon-btn{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;width:40px;height:40px;font-size:1.2rem;cursor:pointer}
@@ -178,3 +187,52 @@ table.data tr.clickable{cursor:pointer} table.data tr.clickable:hover{background
 .ws-tile:hover{background:#eef2f7;border-color:var(--navy2)}
 .ws-count{font-size:1.6rem;font-weight:800;color:var(--navy)}
 .ws-label{font-size:.78rem;color:var(--muted);margin-top:2px}
+
+/* ============================ MODERN BRAND POLISH ============================ */
+.sidebar{background:#fff}
+.link-btn{transition:background .15s}
+.link-btn:hover{background:rgba(255,255,255,.18)}
+.who{font-weight:600}
+
+/* Section headings get a brand accent bar */
+.section-head h2{position:relative;padding-inline-start:14px}
+.section-head h2::before{content:"";position:absolute;inset-inline-start:0;top:2px;bottom:2px;width:5px;border-radius:3px;background:var(--grad)}
+
+/* Cards lift slightly on hover */
+.card{transition:box-shadow .18s,transform .18s}
+.card:hover{box-shadow:0 2px 4px rgba(60,40,30,.08),0 12px 30px rgba(60,40,30,.10)}
+
+/* KPI / stat tiles — accent top bar + gradient number */
+.stat,.stat-card{position:relative;overflow:hidden}
+.stat::before,.stat-card::before{content:"";position:absolute;top:0;inset-inline:0;height:4px;background:var(--grad)}
+.stat-value{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat:hover,.stat-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(142,36,28,.12)}
+.stat,.stat-card{transition:transform .18s,box-shadow .18s}
+
+/* Login screen — brand logo + softer card */
+.login-card{box-shadow:0 10px 40px rgba(142,36,28,.14);border-color:var(--brand-soft)}
+.login-logo{display:block;width:132px;height:132px;margin:0 auto 8px;object-fit:contain}
+.login-card h1{text-align:center}
+.login-card .muted{text-align:center}
+
+/* Buttons — brand gradient for primary */
+.btn.primary{background:var(--grad);box-shadow:0 2px 8px rgba(142,36,28,.22)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn{transition:filter .15s,transform .08s}
+.btn:active{transform:scale(.98)}
+
+/* Tables — brand-tinted header */
+table.data th{background:#fbf5f1;color:var(--brand-dark)}
+table.data tr:hover td{background:#fdf8f5}
+
+/* Bar charts in brand */
+.bar-fill{background:var(--grad)!important}
+
+/* Badges */
+.badge.ok{background:#e7f6ec;color:var(--ok)}
+.badge.warn{background:#fdf1dd;color:var(--warn)}
+.badge.off,.badge.danger{background:#fcebe9;color:var(--err)}
+
+/* Notification bell badge + active nav as a brand pill */
+.nav-item.active{box-shadow:0 4px 12px rgba(142,36,28,.28)}
+.notif-badge{background:var(--accent);color:#3a2a00}
