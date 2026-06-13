@@ -1,7 +1,7 @@
 /** service-worker.js — app-shell cache for the v2 PWA. */
-var CACHE = 'ubc-ops-v2-5';
+var CACHE = 'ubc-ops-v2-6';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './css/styles.css',
-  './js/i18n.js', './js/api.js', './js/ui.js', './js/app.js'];
+  './js/i18n.js', './js/api.js', './js/ui.js', './js/dashboard.js', './js/admin.js', './js/notifications.js', './js/app.js'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));

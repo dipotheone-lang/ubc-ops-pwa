@@ -88,6 +88,50 @@ function dashboardSummary(authCtx) {
       openOf(tenders, ['Awarded', 'Lost', 'Closed']).length, '', 'tendering');
   }
 
+  /* ---- construction ---- */
+  if (canView('construction', 'daily_site_reports')) {
+    var dsrs = dbList('daily_site_reports');
+    var avgP = dsrs.length ? Math.round(sum(dsrs, 'progress_pct') / dsrs.length) : 0;
+    add('site_progress', 'Avg site progress', 'متوسط التقدم', avgP, '%', 'construction', 'primary');
+    add('dsr_count', 'Daily reports', 'التقارير اليومية', dsrs.length, '', 'construction');
+  }
+
+  /* ---- HR ---- */
+  if (canView('hr', 'employees')) {
+    var emps = dbList('employees');
+    add('headcount', 'Active headcount', 'العمالة النشطة',
+      emps.filter(function (e) { return String(e.status) === 'Active'; }).length, '', 'hr', 'primary');
+    charts.hr_dept = groupCount(emps, 'department');
+  }
+  if (canView('hr', 'leave_requests')) {
+    var lv = dbList('leave_requests');
+    add('leave_pending', 'Leave to approve', 'إجازات للاعتماد',
+      lv.filter(function (l) { return String(l.status) === 'Submitted'; }).length, '', 'hr', 'warn');
+  }
+
+  /* ---- assets ---- */
+  if (canView('assets', 'assets')) {
+    var assets = dbList('assets');
+    add('assets_count', 'Assets', 'الأصول', assets.length, '', 'assets');
+    charts.asset_status = groupCount(assets, 'status');
+    var cals = dbList('calibration_records');
+    var dueCal = cals.filter(function (c) { return String(c.status) !== 'Valid'; }).length;
+    if (dueCal) add('cal_due', 'Calibration due', 'معايرات مستحقة', dueCal, '', 'assets', 'danger');
+  }
+
+  /* ---- HSE ---- */
+  if (canView('hse', 'incidents')) {
+    var incs = dbList('incidents');
+    add('incidents_open', 'Open incidents', 'حوادث مفتوحة',
+      openOf(incs, ['Closed']).length, '', 'hse', incs.length ? 'warn' : 'ok');
+    charts.incident_type = groupCount(incs, 'type');
+  }
+  if (canView('hse', 'permits')) {
+    var permits = dbList('permits');
+    add('permits_active', 'Active permits', 'تصاريح سارية',
+      permits.filter(function (p) { return String(p.status) === 'Active' || String(p.status) === 'Approved'; }).length, '', 'hse');
+  }
+
   /* ---- approvals & my work ---- */
   var pending = pendingApprovalsFor(authCtx);
   add('approvals_pending', 'Awaiting my approval', 'بانتظار اعتمادي', pending.length, '', 'approvals', pending.length ? 'danger' : 'ok');

@@ -5,6 +5,8 @@
   'use strict';
   var el = UI.el, t = I18N.t, toast = UI.toast;
   var STATE = { user: null, roles: [], perms: [], lookups: [], company: null, pending: 0 };
+  // Bridge for the self-contained feature modules (dashboard.js / admin.js / notifications.js).
+  window.APP = { state: STATE, can: can, go: function (v) { return go(v); }, reload: afterLogin };
 
   /* ----------------------------- boot ---------------------------------- */
   function boot() {
@@ -145,8 +147,9 @@
     document.querySelectorAll('.nav-item').forEach(function (a) { a.classList.remove('active'); });
     var main = document.getElementById('view'); UI.clear(main);
     main.appendChild(el('div', { class: 'loading', text: t('loading') }));
-    var fn = ({ dashboard: vDashboard, approvals: vApprovals, clients: vClients, suppliers: vSuppliers,
-      projects: vProjects, users: vUsers, settings: vSettings,
+    var fn = ({ dashboard: function () { return window.DASHBOARD ? DASHBOARD.view() : vDashboard(); },
+      approvals: vApprovals, clients: vClients, suppliers: vSuppliers,
+      projects: vProjects, users: function () { return window.ADMIN ? ADMIN.view() : vUsers(); }, settings: vSettings,
       procurement: function () { return renderModule('procurement'); },
       warehouse: function () { return renderModule('warehouse'); },
       finance: function () { return renderModule('finance'); },

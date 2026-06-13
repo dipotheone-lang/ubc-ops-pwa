@@ -70,16 +70,19 @@
       if (!(d.kpis || []).length) grid.appendChild(el('p', { class: 'muted', text: t('no_kpis') }));
       wrap.appendChild(grid);
 
-      // charts
+      // charts — render every chart the backend returns (auto-adapts to new modules)
       var charts = d.charts || {};
-      var chartDefs = [
-        ['projects_status', t('projects') + ' · ' + t('status')],
-        ['mr_status', t('mr') + ' · ' + t('status')],
-        ['opp_stage', t('bd') + ' · ' + t('stage')],
-        ['expense_category', t('expense') + ' · ' + t('category')]
-      ];
+      var titles = {
+        projects_status: t('projects') + ' · ' + t('status'),
+        mr_status: t('mr') + ' · ' + t('status'),
+        opp_stage: t('bd') + ' · ' + t('stage'),
+        expense_category: t('expense') + ' · ' + t('category'),
+        hr_dept: t('hr'), asset_status: t('assets') + ' · ' + t('status'), incident_type: t('hse')
+      };
       var chartWrap = el('div', { class: 'chart-grid' });
-      chartDefs.forEach(function (c) { var n = barChart(c[1], charts[c[0]]); if (n) chartWrap.appendChild(n); });
+      Object.keys(charts).forEach(function (key) {
+        var n = barChart(titles[key] || key.replace(/_/g, ' '), charts[key]); if (n) chartWrap.appendChild(n);
+      });
       if (chartWrap.childNodes.length) wrap.appendChild(chartWrap);
 
       // recent activity
