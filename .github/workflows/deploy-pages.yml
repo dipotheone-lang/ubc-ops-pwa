@@ -25,13 +25,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Generate icons + build static bundle
+      - name: Assemble site (v2 at root, v1 under /v1)
         run: |
           node scripts/make-icons.mjs
-          node scripts/build.mjs
+          node scripts/build.mjs            # builds v1 -> dist/
+          mkdir -p site
+          cp -r v2/frontend/* site/         # v2 is the current product (site root)
+          mkdir -p site/v1
+          cp -r dist/* site/v1/             # legacy v1 kept at /v1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4
