@@ -36,6 +36,7 @@
         });
         if (fl.value) input.value = fl.value;
       } else if (fl.type === 'textarea') { input = el('textarea', { id: id, rows: 3 }); if (fl.value) input.value = fl.value; }
+      else if (fl.type === 'file') { input = el('input', { id: id, type: 'file', accept: fl.accept || 'image/*,application/pdf' }); }
       else { input = el('input', { id: id, type: fl.type || 'text', value: fl.value || '', placeholder: fl.placeholder || '', step: fl.type === 'number' ? 'any' : null }); }
       inputs[fl.name] = { node: input, spec: fl };
       w.appendChild(input); w.appendChild(el('div', { class: 'field-error', id: id + '_err' }));
@@ -47,7 +48,8 @@
       e.preventDefault();
       var v = {}, okv = true;
       Object.keys(inputs).forEach(function (name) {
-        var rec = inputs[name]; v[name] = rec.node.value;
+        var rec = inputs[name];
+        v[name] = rec.spec.type === 'file' ? (rec.node.files && rec.node.files[0]) || null : rec.node.value;
         var errN = document.getElementById('f_' + name + '_err'); errN.textContent = '';
         if (rec.spec.required && !v[name]) { errN.textContent = '!'; okv = false; }
       });
@@ -97,8 +99,21 @@
     var state = { q: '', sort: null, dir: 1, page: 0 };
     var wrap = el('div', {});
     var search = el('input', { class: 'tbl-search', type: 'search', placeholder: '🔎 ' + (I18N.t('search') || 'Search') });
+    var exportBtn = el('button', { class: 'btn small', text: '⤓ CSV', onclick: function () { exportCsv(); } });
     var holder = el('div', {});
-    wrap.appendChild(search); wrap.appendChild(holder);
+    wrap.appendChild(el('div', { class: 'tbl-toolbar' }, [search, exportBtn]));
+    wrap.appendChild(holder);
+    function exportCsv() {
+      var q = state.q.toLowerCase();
+      var data = rows.filter(function (r) { return !q || searchText(r).indexOf(q) !== -1; });
+      var keyCols = cols.filter(function (c) { return c.key; });
+      var esc = function (s) { s = String(s == null ? '' : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      var lines = [keyCols.map(function (c) { return esc(c.label); }).join(',')];
+      data.forEach(function (r) { lines.push(keyCols.map(function (c) { return esc(r[c.key]); }).join(',')); });
+      var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var a = el('a', { href: URL.createObjectURL(blob), download: 'export-' + Date.now() + '.csv' });
+      document.body.appendChild(a); a.click(); setTimeout(function () { document.body.removeChild(a); }, 100);
+    }
 
     function val(r, c) { return c.render ? null : r[c.key]; }
     function searchText(r) {

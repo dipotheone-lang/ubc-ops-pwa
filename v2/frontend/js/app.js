@@ -275,7 +275,8 @@
       return masterList('projects',
         [{ key: 'project_code', label: t('code') }, { label: t('name_en'), render: function (r) { return I18N.pick(r, 'name'); } },
          { key: 'client_ref', label: t('client') }, { key: 'status', label: t('status') },
-         { label: 'Drive', render: function (r) { return r.drive_root_url ? el('a', { href: r.drive_root_url, target: '_blank', text: 'Open' }) : ''; } }],
+         { label: 'Drive', render: function (r) { return r.drive_root_url ? el('a', { href: r.drive_root_url, target: '_blank', text: 'Open' }) : ''; } },
+         { label: t('workspace'), render: function (r) { return el('button', { class: 'btn small primary', text: '🗂', title: t('workspace'), onclick: function () { openWorkspace(r); } }); } }],
         can('masters', 'projects', 'create'),
         function () { return [
           { name: 'name_en', label: t('name_en'), required: true }, { name: 'name_ar', label: t('name_ar') },
@@ -347,7 +348,7 @@
     ] },
     warehouse: { docs: [
       { key: 'grn', entity: 'goods_received_notes', action: 'wh.grn.create',
-        fields: [['project_id', 'project', true], ['supplier_id', 'supplier'], ['received_date', 'date', true], ['condition', 'select', false, ['Good', 'Damaged', 'Partial', 'Rejected']], ['notes', 'textarea']],
+        fields: [['project_id', 'project', true], ['supplier_id', 'supplier'], ['received_date', 'date', true], ['condition', 'select', false, ['Good', 'Damaged', 'Partial', 'Rejected']], ['notes', 'textarea'], ['photo_url', 'file', false, { slot: 'warehouse' }]],
         lines: ['item_code', 'description', 'unit', 'qty_ordered', 'qty_received', 'qty_accepted'], cols: [['grn_number', '#'], ['status', 'status'], ['condition', '']] },
       { key: 'miv', entity: 'material_issues', action: 'wh.miv.create',
         fields: [['project_id', 'project', true], ['issue_date', 'date', true], ['issued_to', 'text', true], ['purpose', 'text']],
@@ -364,7 +365,7 @@
         fields: [['project_id', 'project', true], ['client_id', 'client'], ['payer', 'text'], ['amount', 'number', true], ['method', 'select', false, ['Cash', 'Bank Transfer', 'Cheque']], ['reference', 'text'], ['wht_amount', 'number'], ['retention_amount', 'number']],
         cols: [['rv_number', '#'], ['status', 'status'], ['amount', 'total']] },
       { key: 'expense', entity: 'expenses', action: 'fin.expense.create', submittable: true,
-        fields: [['project_id', 'project', true], ['expense_date', 'date', true], ['category', 'select', true, ['Materials', 'Labor', 'Equipment', 'Transport', 'Permits', 'Utilities', 'Subcontractor', 'Misc']], ['amount', 'number', true], ['payment_method', 'select', false, ['Cash', 'Bank Transfer', 'Cheque', 'Credit']], ['vendor', 'text'], ['description', 'textarea']],
+        fields: [['project_id', 'project', true], ['expense_date', 'date', true], ['category', 'select', true, ['Materials', 'Labor', 'Equipment', 'Transport', 'Permits', 'Utilities', 'Subcontractor', 'Misc']], ['amount', 'number', true], ['payment_method', 'select', false, ['Cash', 'Bank Transfer', 'Cheque', 'Credit']], ['vendor', 'text'], ['description', 'textarea'], ['receipt_url', 'file', false, { slot: 'accounting' }]],
         cols: [['exp_number', '#'], ['status', 'status'], ['amount', 'total']] }
     ] },
     techoffice: { docs: [
@@ -404,7 +405,7 @@
     ] },
     construction: { docs: [
       { key: 'dsr', entity: 'daily_site_reports', action: 'con.dsr.create',
-        fields: [['project_id', 'project', true], ['report_date', 'date', true], ['weather', 'text'], ['manpower_count', 'number'], ['equipment_count', 'number'], ['progress_pct', 'number'], ['activities', 'textarea'], ['delays', 'textarea']],
+        fields: [['project_id', 'project', true], ['report_date', 'date', true], ['weather', 'text'], ['manpower_count', 'number'], ['equipment_count', 'number'], ['progress_pct', 'number'], ['activities', 'textarea'], ['delays', 'textarea'], ['photo_url', 'file', false, { slot: 'site' }]],
         cols: [['dsr_number', '#'], ['report_date', 'date'], ['progress_pct', ''], ['manpower_count', '']] },
       { key: 'si', entity: 'site_instructions', action: 'con.si.create',
         fields: [['project_id', 'project', true], ['instruction_date', 'date'], ['issued_to', 'text'], ['subject', 'text', true], ['details', 'textarea']],
@@ -487,8 +488,42 @@
     else if (type === 'employee') { spec.type = 'select'; spec.options = refOpts('employees'); }
     else if (type === 'asset') { spec.type = 'select'; spec.options = refOpts('assets'); }
     else if (type === 'select') { spec.type = 'select'; spec.options = f[3] || []; }
+    else if (type === 'file') { spec.type = 'file'; spec.accept = (f[3] && f[3].accept) || 'image/*,application/pdf'; }
     else spec.type = type;
     return spec;
+  }
+
+  /* ---- client-side image compression + Drive upload (reused from v1) ---- */
+  function compressImage(file, maxDim, q) {
+    maxDim = maxDim || 1200; q = q || 0.72;
+    if (!file.type || file.type.indexOf('image/') !== 0) return Promise.resolve({ blob: file, name: file.name, mime: file.type || 'application/octet-stream' });
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        var cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * scale); cv.height = Math.round(img.naturalHeight * scale);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob(function (b) { resolve({ blob: b, name: (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', mime: 'image/jpeg' }); }, 'image/jpeg', q);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Cannot read image')); };
+      img.src = url;
+    });
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { var s = r.result, c = s.indexOf(','); resolve(c >= 0 ? s.slice(c + 1) : s); };
+      r.onerror = function () { reject(r.error); };
+      r.readAsDataURL(blob);
+    });
+  }
+  function uploadDocFile(projectId, slot, file) {
+    return compressImage(file).then(function (c) {
+      return blobToBase64(c.blob).then(function (b64) {
+        return API.act('file.upload', { project_id: projectId, slot: slot, fileName: c.name, mimeType: c.mime, base64: b64 });
+      });
+    });
   }
 
   function tabsBar(items) {
@@ -543,9 +578,23 @@
     if (canAct(moduleKey, doc.entity, 'create')) {
       var le = doc.lines ? lineEditor(doc.lines) : null;
       var f = UI.form(doc.fields.map(fieldSpec), t('new_doc'), function (v) {
-        var rec = {}; Object.keys(v).forEach(function (k) { if (v[k] !== '') rec[k] = v[k]; });
+        var rec = {}, fileJobs = [];
+        doc.fields.forEach(function (fd) {
+          var name = fd[0];
+          if (fd[1] === 'file') { if (v[name]) fileJobs.push({ field: name, slot: (fd[3] && fd[3].slot) || 'site', file: v[name] }); return; }
+          if (v[name] !== '' && v[name] != null) rec[name] = v[name];
+        });
         if (le) rec.lines = le.getRows();
-        return API.act(doc.action, { record: rec }).then(function () { toast(t('new_doc') + ' ✓', 'success'); go(moduleKey); });
+        var chain = Promise.resolve();
+        fileJobs.forEach(function (j) {
+          chain = chain.then(function () {
+            if (!rec.project_id) throw new Error('Select a project before attaching a file.');
+            toast(t('loading'), 'info');
+            return uploadDocFile(rec.project_id, j.slot, j.file).then(function (r) { rec[j.field] = r.url; });
+          });
+        });
+        return chain.then(function () { return API.act(doc.action, { record: rec }); })
+          .then(function () { toast(t('new_doc') + ' ✓', 'success'); go(moduleKey); });
       });
       wrap.appendChild(card(t('new_doc') + ' — ' + t(doc.key), el('div', {}, [f.form, le ? el('h4', { text: t('line_items') }) : null, le ? le.node : null])));
     }
@@ -587,8 +636,10 @@
       var grid = el('div', { class: 'detail-grid' });
       Object.keys(rec).forEach(function (k) {
         if (AUDIT_KEYS[k] || rec[k] === '' || rec[k] == null) return;
-        grid.appendChild(el('div', { class: 'detail-kv' }, [
-          el('div', { class: 'dk', text: prettyLabel(k) }), el('div', { class: 'dv', text: String(rec[k]) })]));
+        var dv = (/_url$/.test(k) && /^https?:/.test(String(rec[k])))
+          ? el('a', { class: 'dv', href: rec[k], target: '_blank', text: '🔗 ' + t('open') })
+          : el('div', { class: 'dv', text: String(rec[k]) });
+        grid.appendChild(el('div', { class: 'detail-kv' }, [el('div', { class: 'dk', text: prettyLabel(k) }), dv]));
       });
       m.body.appendChild(grid);
 
@@ -619,8 +670,14 @@
 
       // contextual actions
       var actions = el('div', { class: 'row-actions detail-actions' });
+      var LOCKED = ['Submitted', 'Approved', 'Paid', 'Issued', 'Posted', 'Awarded', 'Incorporated', 'Closed', 'Invoiced', 'Cancelled', 'Voided'];
+      var editable = LOCKED.indexOf(String(rec.status || '')) === -1;
       if (doc.submittable && String(rec.status) === 'Draft' && canAct(moduleKey, doc.entity, 'submit'))
         actions.appendChild(el('button', { class: 'btn primary', text: t('submit'), onclick: function () { m.close(); submitDoc(doc.entity, id, moduleKey); } }));
+      if (editable && canAct(moduleKey, doc.entity, 'edit'))
+        actions.appendChild(el('button', { class: 'btn', text: t('edit'), onclick: function () { m.close(); editDoc(moduleKey, doc, rec); } }));
+      if (String(rec.status || '') !== 'Cancelled' && canAct(moduleKey, doc.entity, 'edit'))
+        actions.appendChild(el('button', { class: 'btn danger', text: t('void') || 'Void', onclick: function () { voidDoc(doc.entity, id, moduleKey, m); } }));
       // can the current user act on the active approval step?
       if (d.approval && d.approval.request && d.approval.request.status === 'Pending') {
         var active = (d.approval.steps || []).filter(function (s) { return s.status === 'Active'; })[0];
@@ -642,6 +699,48 @@
       .then(function (res) { toast(res.request.status, 'success'); m.close(); return API.bootstrap(); })
       .then(function (b) { STATE.pending = b.pending_approvals || 0; render(); go(moduleKey); })
       .catch(function (e) { toast(e.message, 'error'); });
+  }
+
+  function editDoc(moduleKey, doc, rec) {
+    var specs = doc.fields.filter(function (fd) { return fd[1] !== 'file'; }).map(function (fd) {
+      var s = fieldSpec(fd); if (rec[fd[0]] != null && rec[fd[0]] !== '') s.value = rec[fd[0]]; return s;
+    });
+    var m = UI.modal(t('edit') + ' — ' + (rec[doc.cols[0][0]] || ''), UI.form(specs, t('save'), function (v) {
+      var patch = {}; Object.keys(v).forEach(function (k) { if (v[k] !== '' && v[k] != null) patch[k] = v[k]; });
+      return API.act('doc.update', { entity: doc.entity, id: rec.id, patch: patch })
+        .then(function () { toast(t('save') + ' ✓', 'success'); m.close(); go(moduleKey); });
+    }).form, { wide: true });
+  }
+  function voidDoc(entity, id, moduleKey, detailModal) {
+    var reason = window.prompt((t('void') || 'Void') + ' — ' + t('comment'), '');
+    if (reason === null) return;
+    API.act('doc.void', { entity: entity, id: id, reason: reason })
+      .then(function () { toast((t('void') || 'Void') + ' ✓', 'success'); if (detailModal) detailModal.close(); go(moduleKey); })
+      .catch(function (e) { toast(e.message, 'error'); });
+  }
+
+  function openWorkspace(proj) {
+    var fmt = function (n) { return Number(n || 0).toLocaleString('en-EG', { maximumFractionDigits: 0 }); };
+    var kv = function (k, v) { return el('div', { class: 'detail-kv' }, [el('div', { class: 'dk', text: k }), el('div', { class: 'dv', text: String(v) })]); };
+    var m = UI.modal(t('workspace') + ' — ' + (I18N.pick(proj, 'name') || proj.project_code), el('div', { class: 'loading', text: t('loading') }), { wide: true });
+    API.act('project.workspace', { project_id: proj.id }).then(function (d) {
+      var p = d.project; UI.clear(m.body);
+      m.body.appendChild(el('div', { class: 'detail-grid' }, [
+        kv(t('code'), p.project_code), kv(t('client'), p.client_ref || ''), kv(t('status'), p.status),
+        kv('PO ' + t('total'), fmt(d.po_value) + ' EGP'), kv(t('expense'), fmt(d.expense_total) + ' EGP'), kv('NCR', d.open_ncrs)
+      ]));
+      if (p.drive_root_url) m.body.appendChild(el('p', {}, [el('a', { href: p.drive_root_url, target: '_blank', text: '🔗 Drive' })]));
+      m.body.appendChild(el('h4', { text: t('records') }));
+      var grid = el('div', { class: 'ws-grid' });
+      (d.counts || []).forEach(function (c) {
+        grid.appendChild(el('div', { class: 'ws-tile', onclick: function () { m.close(); go(c.module); } }, [
+          el('div', { class: 'ws-count', text: String(c.count) }),
+          el('div', { class: 'ws-label', text: prettyLabel(c.entity) })
+        ]));
+      });
+      if (!(d.counts || []).length) grid.appendChild(el('p', { class: 'muted', text: t('no_records') }));
+      m.body.appendChild(grid);
+    }).catch(function (e) { UI.clear(m.body); m.body.appendChild(el('div', { class: 'error-box', text: e.message })); });
   }
 
   function submitDoc(entity, id, moduleKey) {

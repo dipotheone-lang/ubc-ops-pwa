@@ -62,6 +62,8 @@ function validateEnums(entity, record) {
     if (v === true) val = 'TRUE';
     else if (v === false) val = 'FALSE';
     else { val = String(v); if (isBoolEnum) val = val.toUpperCase(); }
+    // 'Cancelled' / 'Voided' are universal meta-statuses allowed on any document
+    if (f === 'status' && (val === 'Cancelled' || val === 'Voided')) continue;
     if (allowed.indexOf(val) === -1)
       throw new AppError('VALIDATION', 'Invalid ' + f + '="' + v + '". Allowed: ' + allowed.join(', '));
   }

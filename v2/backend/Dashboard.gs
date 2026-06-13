@@ -7,6 +7,26 @@
  * dozen list round-trips the PWA would otherwise make to render a home screen.
  */
 
+/** Cross-module rollup for a single project (counts + key totals + links). */
+function projectWorkspace(projectId) {
+  var p = dbGet('projects', projectId);
+  if (!p) throw new AppError('NOT_FOUND', 'Project not found.', 404);
+  var ents = ['material_requisitions', 'purchase_orders', 'goods_received_notes', 'material_issues',
+    'payment_vouchers', 'expenses', 'invoices', 'variation_orders', 'interim_payment_certs', 'ncrs',
+    'daily_site_reports', 'site_instructions', 'hira', 'permits', 'incidents', 'hse_inspections'];
+  var counts = [];
+  ents.forEach(function (e) {
+    try { var n = dbList(e, { project_id: projectId }).length; if (n) counts.push({ entity: e, module: ENTITY_MODULE[e], count: n }); } catch (x) {}
+  });
+  var sum = function (e, c) { return dbList(e, { project_id: projectId }).reduce(function (s, r) { return s + (Number(r[c]) || 0); }, 0); };
+  return {
+    project: p, counts: counts,
+    po_value: Math.round(sum('purchase_orders', 'total')),
+    expense_total: Math.round(sum('expenses', 'amount')),
+    open_ncrs: dbList('ncrs', { project_id: projectId }).filter(function (n) { return String(n.status) !== 'Closed'; }).length
+  };
+}
+
 function dashboardSummary(authCtx) {
   var canView = function (module, entity) { return can(authCtx, { module: module, entity: entity, action: 'view' }); };
   var sum = function (rows, col) { return rows.reduce(function (s, r) { return s + (Number(r[col]) || 0); }, 0); };

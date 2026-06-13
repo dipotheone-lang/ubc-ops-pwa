@@ -193,6 +193,28 @@ function dispatch_(action, body, authCtx) {
       if (rec.approval_id) approval = { request: dbGet('approval_requests', rec.approval_id), steps: dbList('approval_steps', { request_id: rec.approval_id }) };
       return { record: rec, lines: lines, approval: approval };
     }
+    case 'doc.update': {
+      requireFields(body, ['entity', 'id', 'patch']);
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'edit', projectId: body.project_id });
+      var cur = dbGet(body.entity, body.id);
+      if (!cur) throw new AppError('NOT_FOUND', 'Document not found.', 404);
+      var locked = ['Submitted', 'Approved', 'Paid', 'Issued', 'Posted', 'Awarded', 'Incorporated', 'Closed', 'Invoiced', 'Cancelled', 'Voided'];
+      if (locked.indexOf(String(cur.status || '')) !== -1) throw new AppError('LOCKED', 'Cannot edit a ' + cur.status + ' document.', 409);
+      return logged_(authCtx, 'edit', moduleOf_(body.entity), body.entity, dbUpdate(body.entity, body.id, body.patch, actor));
+    }
+    case 'doc.void': {
+      requireFields(body, ['entity', 'id']);
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'edit', projectId: body.project_id });
+      var voided = dbUpdate(body.entity, body.id, { status: 'Cancelled' }, actor);
+      audit({ user_id: authCtx.user.id, user_email: actor, action: 'void', module: moduleOf_(body.entity), entity: body.entity, record_id: body.id, note: body.reason || '' });
+      return voided;
+    }
+    case 'file.upload': {
+      requireFields(body, ['fileName', 'base64']);
+      var folderId = body.folderId || (body.project_id ? projectFolderId(body.project_id, body.slot || 'site') : null);
+      if (!folderId) throw new AppError('VALIDATION', 'folderId or project_id+slot required.');
+      return uploadBase64ToFolder(folderId, body.fileName, body.mimeType, body.base64);
+    }
     case 'doc.submit': {
       requireFields(body, ['entity', 'id']);
       requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'submit', projectId: body.project_id });
@@ -340,6 +362,10 @@ function dispatch_(action, body, authCtx) {
     /* ---- dashboard (any authenticated user; results are permission-scoped) ---- */
     case 'dashboard.summary':
       return dashboardSummary(authCtx);
+    case 'project.workspace':
+      requireFields(body, ['project_id']);
+      requirePermission(authCtx, { module: 'masters', entity: 'projects', action: 'view', projectId: body.project_id });
+      return projectWorkspace(body.project_id);
 
     /* ---- notifications (self only) ---- */
     case 'notifications.list':
