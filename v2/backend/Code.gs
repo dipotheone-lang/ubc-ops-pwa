@@ -47,7 +47,7 @@ var ENTITY_MODULE = {
   projects: 'masters', clients: 'masters', suppliers: 'masters',
   material_requisitions: 'procurement', mr_lines: 'procurement', purchase_orders: 'procurement', po_lines: 'procurement',
   goods_received_notes: 'warehouse', grn_lines: 'warehouse', stock_items: 'warehouse', material_issues: 'warehouse', miv_lines: 'warehouse',
-  payment_vouchers: 'finance', receipt_vouchers: 'finance', expenses: 'finance',
+  payment_vouchers: 'finance', receipt_vouchers: 'finance', expenses: 'finance', invoices: 'finance',
   project_charters: 'techoffice', variation_orders: 'techoffice', interim_payment_certs: 'techoffice', ncrs: 'techoffice',
   opportunities: 'bd', interactions: 'bd',
   tenders: 'tendering', tender_costlines: 'tendering',

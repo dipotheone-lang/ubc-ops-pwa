@@ -113,30 +113,38 @@
     who.textContent = (I18N.current() === 'ar' ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email;
     document.getElementById('lang-btn').textContent = I18N.t('lang_toggle');
 
-    // nav
+    // nav — grouped into ERP module sections
     var nav = document.getElementById('nav'); UI.clear(nav);
-    var items = [['dashboard', t('dashboard'), true]];
-    items.push(['approvals', t('approvals'), true]);
-    if (can('masters', 'clients', 'view')) items.push(['clients', t('clients'), true]);
-    if (can('masters', 'suppliers', 'view')) items.push(['suppliers', t('suppliers'), true]);
-    if (can('masters', 'projects', 'view')) items.push(['projects', t('projects'), true]);
-    if (canModule('procurement')) items.push(['procurement', t('procurement'), true]);
-    if (canModule('warehouse')) items.push(['warehouse', t('warehouse'), true]);
-    if (canModule('finance')) items.push(['finance', t('finance'), true]);
-    if (canModule('techoffice')) items.push(['techoffice', t('techoffice'), true]);
-    if (canModule('bd')) items.push(['bd', t('bd'), true]);
-    if (canModule('tendering')) items.push(['tendering', t('tendering'), true]);
-    if (canModule('construction')) items.push(['construction', t('construction'), true]);
-    if (canModule('correspondence')) items.push(['correspondence', t('correspondence'), true]);
-    if (canModule('prequal')) items.push(['prequal', t('prequal'), true]);
-    if (canModule('hr')) items.push(['hr', t('hr'), true]);
-    if (canModule('assets')) items.push(['assets', t('assets_m'), true]);
-    if (canModule('hse')) items.push(['hse', t('hse'), true]);
-    if (can('admin', 'users', 'view') || can('admin', 'users', 'admin')) items.push(['users', t('users'), true]);
-    items.push(['settings', t('settings'), true]);
-    items.forEach(function (it) {
-      nav.appendChild(el('a', { class: 'nav-item' + (STATE.view === it[0] ? ' active' : ''), href: 'javascript:void 0',
-        onclick: function () { go(it[0]); } }, [it[1] + (it[0] === 'approvals' && STATE.pending ? ' (' + STATE.pending + ')' : '')]));
+    function navVisible(r) {
+      switch (r) {
+        case 'dashboard': case 'approvals': case 'settings': return true;
+        case 'clients': return can('masters', 'clients', 'view');
+        case 'suppliers': return can('masters', 'suppliers', 'view');
+        case 'projects': return can('masters', 'projects', 'view');
+        case 'users': return can('admin', 'users', 'view') || can('admin', 'users', 'admin');
+        default: return canModule(r);
+      }
+    }
+    var navLabels = { users: t('admin'), assets: t('assets_m') };
+    function navLabel(r) { return navLabels[r] || t(r); }
+    var GROUPS = [
+      { title: '', items: ['dashboard', 'approvals'] },
+      { title: t('grp_commercial'), items: ['bd', 'tendering', 'clients', 'prequal'] },
+      { title: t('grp_projects'), items: ['projects', 'techoffice', 'construction'] },
+      { title: t('grp_supply'), items: ['procurement', 'warehouse', 'suppliers', 'assets'] },
+      { title: t('grp_finance'), items: ['finance'] },
+      { title: t('grp_people'), items: ['hr', 'hse'] },
+      { title: t('grp_office'), items: ['correspondence'] },
+      { title: t('grp_admin'), items: ['users', 'settings'] }
+    ];
+    GROUPS.forEach(function (g) {
+      var vis = g.items.filter(navVisible);
+      if (!vis.length) return;
+      if (g.title) nav.appendChild(el('div', { class: 'nav-group-title', text: g.title }));
+      vis.forEach(function (r) {
+        nav.appendChild(el('a', { class: 'nav-item' + (STATE.view === r ? ' active' : ''), href: 'javascript:void 0',
+          onclick: function () { go(r); } }, [navLabel(r) + (r === 'approvals' && STATE.pending ? ' (' + STATE.pending + ')' : '')]));
+      });
     });
 
     go(STATE.view || 'dashboard');

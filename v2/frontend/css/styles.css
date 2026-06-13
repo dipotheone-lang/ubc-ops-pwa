@@ -22,6 +22,7 @@ body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:v
 .nav-item{display:block;padding:12px 14px;border-radius:10px;color:var(--ink);text-decoration:none;font-size:.95rem;margin-bottom:2px;cursor:pointer}
 .nav-item:hover{background:#eef2f7}
 .nav-item.active{background:var(--navy);color:#fff;font-weight:600}
+.nav-group-title{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:14px 14px 4px;margin-top:6px;border-top:1px solid var(--line)}
 .main{flex:1;padding:18px;max-width:1000px;width:100%;margin:0 auto}
 @media(max-width:820px){
   .sidebar{position:fixed;inset-block:0;inset-inline-start:0;height:100%;transform:translateX(-100%);

@@ -375,6 +375,15 @@ var SCHEMA = {
     sheet: 'HSEInspections', pk: 'id', fk: { project_id: 'projects' },
     columns: ['id', 'insp_number', 'project_id', 'inspection_date', 'area', 'findings', 'score', 'status'].concat(AUDIT_COLUMNS),
     enums: { status: ['Open', 'Closed'] }
+  },
+
+  /* ---- Finance: historical sales-invoice register (legacy migration target) ----
+   * Free-text columns (no enum constraints) so messy legacy rows import cleanly. */
+  invoices: {
+    sheet: 'Invoices', pk: 'id',
+    columns: ['id', 'invoice_serial', 'supply_service', 'invoice_date', 'client_name', 'description',
+      'total_value', 'tax_deduction', 'gross_value', 'vat', 'total_gross', 'expenses', 'net_profit',
+      'cheque_received', 'cheque_no', 'form13_received', 'remarks', 'source'].concat(AUDIT_COLUMNS)
   }
 };
 
