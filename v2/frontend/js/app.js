@@ -554,7 +554,7 @@
     API.list(doc.entity).then(function (rows) {
       var cols = doc.cols.map(function (c) { return { key: c[0], label: c[1] ? t(c[1]) : prettyLabel(c[0]) }; });
       cols.push({ label: t('actions'), render: function (r) {
-        var box = el('div', { class: 'row-actions' });
+        var box = el('div', { class: 'row-actions', onclick: function (e) { e.stopPropagation(); } });
         if (doc.submittable && String(r.status) === 'Draft' && canAct(moduleKey, doc.entity, 'submit'))
           box.appendChild(el('button', { class: 'btn small primary', text: t('submit'), onclick: function () { submitDoc(doc.entity, r.id, moduleKey); } }));
         else if (r.approval_id || String(r.status) === 'Submitted') box.appendChild(el('span', { class: 'badge ok', text: r.status }));
@@ -564,11 +564,84 @@
             API.act(rb.action, rb.body(r)).then(function () { toast('✓', 'success'); go(moduleKey); }).catch(function (e) { toast(e.message, 'error'); });
           } }));
         });
+        box.appendChild(el('button', { class: 'btn small', text: t('open') || 'Open', onclick: function () { openDetail(moduleKey, doc, r.id); } }));
         return box;
       } });
-      UI.clear(listHolder); listHolder.appendChild(card(t('records'), UI.table(rows, cols)));
+      UI.clear(listHolder);
+      listHolder.appendChild(card(t('records'), UI.dataTable(rows, cols, {
+        onRow: function (r) { openDetail(moduleKey, doc, r.id); },
+        searchKeys: doc.cols.map(function (c) { return c[0]; })
+      })));
     }).catch(function (e) { UI.clear(listHolder); listHolder.appendChild(el('div', { class: 'error-box', text: e.message })); });
     return wrap;
+  }
+
+  var AUDIT_KEYS = { id: 1, created_at: 1, updated_at: 1, created_by: 1, updated_by: 1, approval_id: 1 };
+  function openDetail(moduleKey, doc, id) {
+    var m = UI.modal(t(doc.key), el('div', { class: 'loading', text: t('loading') }), { wide: true });
+    API.act('doc.detail', { entity: doc.entity, id: id }).then(function (d) {
+      var rec = d.record || {}; UI.clear(m.body);
+      m.body.appendChild(el('h3', { text: (rec[doc.cols[0][0]] || t(doc.key)) + (rec.status ? '  ·  ' + rec.status : '') }));
+
+      // summary grid
+      var grid = el('div', { class: 'detail-grid' });
+      Object.keys(rec).forEach(function (k) {
+        if (AUDIT_KEYS[k] || rec[k] === '' || rec[k] == null) return;
+        grid.appendChild(el('div', { class: 'detail-kv' }, [
+          el('div', { class: 'dk', text: prettyLabel(k) }), el('div', { class: 'dv', text: String(rec[k]) })]));
+      });
+      m.body.appendChild(grid);
+
+      // line items
+      if (d.lines && d.lines.length) {
+        var keys = Object.keys(d.lines[0]).filter(function (k) { return !AUDIT_KEYS[k] && !/_id$/.test(k); });
+        m.body.appendChild(el('h4', { text: t('line_items') }));
+        m.body.appendChild(UI.table(d.lines, keys.map(function (k) { return { key: k, label: prettyLabel(k) }; })));
+      }
+
+      // approval timeline
+      if (d.approval && d.approval.request) {
+        m.body.appendChild(el('h4', { text: t('view_approval') }));
+        var steps = (d.approval.steps || []).slice().sort(function (a, b) { return Number(a.step_no) - Number(b.step_no); });
+        var tl = el('div', { class: 'timeline' });
+        steps.forEach(function (s) {
+          var roles = JSON.parse(s.roles_json || '[]'); var apps = JSON.parse(s.approvals_json || '[]');
+          tl.appendChild(el('div', { class: 'tl-step ' + String(s.status).toLowerCase() }, [
+            el('span', { class: 'tl-dot' }),
+            el('div', {}, [
+              el('div', { text: t('step') + ' ' + s.step_no + ': ' + roles.join(' / ') + '  — ' + s.status }),
+              apps.length ? el('div', { class: 'muted', text: apps.map(function (a) { return a.role + ' ' + a.decision; }).join(', ') }) : null
+            ])
+          ]));
+        });
+        m.body.appendChild(tl);
+      }
+
+      // contextual actions
+      var actions = el('div', { class: 'row-actions detail-actions' });
+      if (doc.submittable && String(rec.status) === 'Draft' && canAct(moduleKey, doc.entity, 'submit'))
+        actions.appendChild(el('button', { class: 'btn primary', text: t('submit'), onclick: function () { m.close(); submitDoc(doc.entity, id, moduleKey); } }));
+      // can the current user act on the active approval step?
+      if (d.approval && d.approval.request && d.approval.request.status === 'Pending') {
+        var active = (d.approval.steps || []).filter(function (s) { return s.status === 'Active'; })[0];
+        var myCodes = (STATE.roles || []).map(function (r) { return r.role_code; });
+        var isInitiator = String(d.approval.request.initiator_user) === String(STATE.user.id);
+        if (active && !isInitiator && JSON.parse(active.roles_json || '[]').some(function (rc) { return myCodes.indexOf(rc) !== -1; })) {
+          var cmt = el('input', { class: 'cmt', placeholder: t('comment') });
+          actions.appendChild(cmt);
+          actions.appendChild(el('button', { class: 'btn primary', text: t('approve'), onclick: function () { decideFromDetail(d.approval.request.id, 'approve', cmt.value, m, moduleKey); } }));
+          actions.appendChild(el('button', { class: 'btn danger', text: t('reject'), onclick: function () { decideFromDetail(d.approval.request.id, 'reject', cmt.value, m, moduleKey); } }));
+        }
+      }
+      if (actions.children.length) m.body.appendChild(actions);
+    }).catch(function (e) { UI.clear(m.body); m.body.appendChild(el('div', { class: 'error-box', text: e.message })); });
+  }
+
+  function decideFromDetail(reqId, decision, comment, m, moduleKey) {
+    API.act('approvals.decide', { request_id: reqId, decision: decision, comment: comment })
+      .then(function (res) { toast(res.request.status, 'success'); m.close(); return API.bootstrap(); })
+      .then(function (b) { STATE.pending = b.pending_approvals || 0; render(); go(moduleKey); })
+      .catch(function (e) { toast(e.message, 'error'); });
   }
 
   function submitDoc(entity, id, moduleKey) {

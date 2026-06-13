@@ -4,7 +4,7 @@
  * online (no more stale-bundle trap); falls back to cache only when offline.
  * API calls (script.google.com / googleusercontent) are never intercepted.
  */
-var CACHE = 'ubc-ops-v2-7';
+var CACHE = 'ubc-ops-v2-8';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './css/styles.css',
   './js/i18n.js', './js/api.js', './js/ui.js', './js/dashboard.js', './js/admin.js', './js/notifications.js', './js/app.js'];
 

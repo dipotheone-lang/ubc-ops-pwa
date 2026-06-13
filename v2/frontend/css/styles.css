@@ -154,3 +154,20 @@ td a,.links a{color:var(--navy2);text-decoration:none;font-weight:600}
 .modal-head h3{margin:0;color:var(--navy)}
 .modal-head .icon-btn{background:#eef2f7;color:var(--ink)}
 .modal-body{padding:18px;overflow-y:auto}
+.modal-box.wide{width:760px}
+/* ===== Detail view ===== */
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;margin:8px 0 14px}
+.detail-kv{display:flex;flex-direction:column;border-bottom:1px solid var(--line);padding:5px 0}
+.detail-kv .dk{font-size:.72rem;color:var(--muted);font-weight:600}
+.detail-kv .dv{font-size:.95rem}
+.detail-actions{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+/* ===== Approval timeline ===== */
+.timeline{margin:8px 0 4px;padding-inline-start:6px}
+.tl-step{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:.9rem}
+.tl-dot{width:12px;height:12px;border-radius:50%;background:var(--line);margin-top:4px;flex-shrink:0}
+.tl-step.active .tl-dot{background:var(--accent)} .tl-step.approved .tl-dot{background:var(--ok)} .tl-step.rejected .tl-dot{background:var(--err)}
+/* ===== Table controls ===== */
+.tbl-search{width:100%;max-width:280px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;font-size:.9rem}
+table.data th.sortable{cursor:pointer;user-select:none} table.data th.sortable:hover{color:var(--navy)}
+table.data tr.clickable{cursor:pointer} table.data tr.clickable:hover{background:#f1f5f9}
+.pager{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:12px}

@@ -60,6 +60,15 @@ var ENTITY_MODULE = {
 };
 function moduleOf_(entity) { return ENTITY_MODULE[entity] || 'admin'; }
 
+/** parent entity → its child line entity + foreign key (for doc.detail drill-down). */
+var DOC_LINES = {
+  material_requisitions: { entity: 'mr_lines', fk: 'mr_id' },
+  purchase_orders: { entity: 'po_lines', fk: 'po_id' },
+  goods_received_notes: { entity: 'grn_lines', fk: 'grn_id' },
+  material_issues: { entity: 'miv_lines', fk: 'miv_id' },
+  tenders: { entity: 'tender_costlines', fk: 'tender_id' }
+};
+
 function dispatch_(action, body, authCtx) {
   var actor = authCtx.user.email;
 
@@ -172,6 +181,18 @@ function dispatch_(action, body, authCtx) {
       return { request: dbGet('approval_requests', body.request_id), steps: dbList('approval_steps', { request_id: body.request_id }) };
 
     /* ====================== PHASE 2: value chain ====================== */
+    case 'doc.detail': {
+      requireFields(body, ['entity', 'id']);
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'view', projectId: body.project_id });
+      var rec = dbGet(body.entity, body.id);
+      if (!rec) throw new AppError('NOT_FOUND', 'Document not found.', 404);
+      var lm = DOC_LINES[body.entity];
+      var lines = [];
+      if (lm) { var fil = {}; fil[lm.fk] = body.id; lines = dbList(lm.entity, fil); }
+      var approval = null;
+      if (rec.approval_id) approval = { request: dbGet('approval_requests', rec.approval_id), steps: dbList('approval_steps', { request_id: rec.approval_id }) };
+      return { record: rec, lines: lines, approval: approval };
+    }
     case 'doc.submit': {
       requireFields(body, ['entity', 'id']);
       requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'submit', projectId: body.project_id });
