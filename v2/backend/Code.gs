@@ -155,6 +155,9 @@ function dispatch_(action, body, authCtx) {
       requirePermission(authCtx, { module: 'admin', entity: '*', action: 'admin' });
       requireFields(body, ['entity', 'rows']);
       return logged_(authCtx, 'import', 'admin', body.entity, bulkImport(body.entity, body.rows, body.keyField, actor));
+    case 'admin.purgeTestData':
+      requirePermission(authCtx, { module: 'admin', entity: '*', action: 'admin' });
+      return logged_(authCtx, 'purge_test', 'admin', '*', purgeTestData(body.marker));
     case 'admin.doa.upsert': {
       requirePermission(authCtx, { module: 'admin', entity: 'doa_bands', action: 'admin' });
       var d = body.record || body;
