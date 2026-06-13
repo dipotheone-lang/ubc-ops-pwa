@@ -127,6 +127,9 @@
     if (canModule('construction')) items.push(['construction', t('construction'), true]);
     if (canModule('correspondence')) items.push(['correspondence', t('correspondence'), true]);
     if (canModule('prequal')) items.push(['prequal', t('prequal'), true]);
+    if (canModule('hr')) items.push(['hr', t('hr'), true]);
+    if (canModule('assets')) items.push(['assets', t('assets_m'), true]);
+    if (canModule('hse')) items.push(['hse', t('hse'), true]);
     if (can('admin', 'users', 'view') || can('admin', 'users', 'admin')) items.push(['users', t('users'), true]);
     items.push(['settings', t('settings'), true]);
     items.forEach(function (it) {
@@ -152,7 +155,10 @@
       tendering: function () { return renderModule('tendering'); },
       construction: function () { return renderModule('construction'); },
       correspondence: function () { return renderModule('correspondence'); },
-      prequal: function () { return renderModule('prequal'); } })[view] || vDashboard;
+      prequal: function () { return renderModule('prequal'); },
+      hr: function () { return renderModule('hr'); },
+      assets: function () { return renderModule('assets'); },
+      hse: function () { return renderModule('hse'); } })[view] || vDashboard;
     Promise.resolve(fn()).then(function (node) { UI.clear(main); main.appendChild(node); })
       .catch(function (e) { UI.clear(main); main.appendChild(el('div', { class: 'error-box', text: e.message })); });
     // refresh nav active state
@@ -403,21 +409,63 @@
       { key: 'prq', entity: 'prequalifications', action: 'prequal.create',
         fields: [['client_id', 'client', true], ['submitted_date', 'date'], ['portal', 'text'], ['scope', 'textarea'], ['status', 'select', false, ['Draft', 'Submitted', 'Approved', 'Rejected', 'Expired']]],
         cols: [['prq_number', '#'], ['portal', ''], ['status', 'status']] }
+    ] },
+    hr: { docs: [
+      { key: 'employee', entity: 'employees', action: 'hr.employee.create',
+        fields: [['full_name_en', 'text', true], ['full_name_ar', 'text'], ['national_id', 'text'], ['title', 'text'], ['department', 'text'], ['hire_date', 'date'], ['contract_type', 'select', false, ['Permanent', 'Fixed-Term', 'Daily', 'Consultant']], ['basic_salary', 'number'], ['phone', 'text']],
+        cols: [['emp_code', '#'], ['full_name_en', ''], ['title', ''], ['status', 'status']] },
+      { key: 'leave', entity: 'leave_requests', action: 'hr.leave.create', submittable: true,
+        fields: [['employee_id', 'employee', true], ['type', 'select', true, ['Annual', 'Sick', 'Unpaid', 'Casual', 'Other']], ['from_date', 'date', true], ['to_date', 'date', true], ['reason', 'textarea']],
+        cols: [['leave_number', '#'], ['type', ''], ['days', ''], ['status', 'status']] },
+      { key: 'timesheet', entity: 'timesheets', action: 'hr.timesheet.create',
+        fields: [['employee_id', 'employee', true], ['project_id', 'project'], ['period', 'text', true], ['days_worked', 'number'], ['ot_hours', 'number']],
+        cols: [['ts_number', '#'], ['period', ''], ['days_worked', ''], ['status', 'status']] },
+      { key: 'appraisal', entity: 'appraisals', action: 'hr.appraisal.create',
+        fields: [['employee_id', 'employee', true], ['period', 'text', true], ['rating', 'select', false, ['1', '2', '3', '4', '5']], ['strengths', 'textarea'], ['improvements', 'textarea']],
+        cols: [['appr_number', '#'], ['period', ''], ['rating', ''], ['status', 'status']] }
+    ] },
+    assets: { docs: [
+      { key: 'asset', entity: 'assets', action: 'asset.create',
+        fields: [['name', 'text', true], ['category', 'select', true, ['Heavy Equipment', 'Vehicle', 'Tools', 'IT', 'Survey', 'Other']], ['serial_no', 'text'], ['acquisition_date', 'date'], ['cost', 'number'], ['location', 'text'], ['project_id', 'project']],
+        cols: [['asset_code', '#'], ['name', ''], ['category', ''], ['status', 'status']] },
+      { key: 'maintenance', entity: 'maintenance_records', action: 'asset.maintenance.create',
+        fields: [['asset_id', 'asset', true], ['type', 'select', true, ['Preventive', 'Corrective', 'Inspection']], ['mnt_date', 'date', true], ['description', 'textarea'], ['cost', 'number'], ['next_due', 'date']],
+        cols: [['mnt_number', '#'], ['type', ''], ['mnt_date', 'date']] },
+      { key: 'calibration', entity: 'calibration_records', action: 'asset.calibration.create',
+        fields: [['asset_id', 'asset', true], ['cert_no', 'text'], ['calibrated_date', 'date', true], ['due_date', 'date', true]],
+        cols: [['cal_number', '#'], ['cert_no', ''], ['due_date', ''], ['status', 'status']] }
+    ] },
+    hse: { docs: [
+      { key: 'hira', entity: 'hira', action: 'hse.hira.create', submittable: true,
+        fields: [['project_id', 'project', true], ['activity', 'text', true], ['hazards', 'textarea'], ['risk_score', 'number'], ['controls', 'textarea'], ['residual_score', 'number']],
+        cols: [['hira_number', '#'], ['activity', ''], ['residual_score', ''], ['status', 'status']] },
+      { key: 'permit', entity: 'permits', action: 'hse.permit.create', submittable: true,
+        fields: [['project_id', 'project', true], ['type', 'select', true, ['Hot Work', 'Confined Space', 'Working at Height', 'Excavation', 'Electrical', 'Lifting', 'Energization', 'General']], ['valid_from', 'date'], ['valid_to', 'date'], ['issued_to', 'text']],
+        cols: [['permit_number', '#'], ['type', ''], ['status', 'status']] },
+      { key: 'incident', entity: 'incidents', action: 'hse.incident.create',
+        fields: [['project_id', 'project', true], ['incident_date', 'date', true], ['type', 'select', true, ['Near Miss', 'First Aid', 'Medical Treatment', 'Lost Time', 'Fatality', 'Environmental']], ['severity', 'select', false, ['Low', 'Medium', 'High', 'Critical']], ['description', 'textarea']],
+        cols: [['incident_number', '#'], ['type', ''], ['severity', ''], ['status', 'status']] },
+      { key: 'inspection', entity: 'hse_inspections', action: 'hse.inspection.create',
+        fields: [['project_id', 'project', true], ['inspection_date', 'date', true], ['area', 'text'], ['findings', 'textarea'], ['score', 'number']],
+        cols: [['insp_number', '#'], ['area', ''], ['score', ''], ['status', 'status']] }
     ] }
   };
 
   function refOpts(entity) {
     return (STATE[entity] || []).map(function (r) {
-      var code = r.project_code || r.client_code || r.supplier_code || '';
-      return { value: r.id, label: (code ? code + ' — ' : '') + (I18N.pick(r, 'name') || r.description || r.id) };
+      var code = r.project_code || r.client_code || r.supplier_code || r.emp_code || r.asset_code || '';
+      var nm = I18N.pick(r, 'name') || I18N.pick(r, 'full_name') || r.name || r.description || r.id;
+      return { value: r.id, label: (code ? code + ' — ' : '') + nm };
     });
   }
   function loadRefs() {
     return Promise.all([
       API.list('projects').catch(function () { return []; }),
       API.list('clients').catch(function () { return []; }),
-      API.list('suppliers').catch(function () { return []; })
-    ]).then(function (r) { STATE.projects = r[0] || []; STATE.clients = r[1] || []; STATE.suppliers = r[2] || []; });
+      API.list('suppliers').catch(function () { return []; }),
+      API.list('employees').catch(function () { return []; }),
+      API.list('assets').catch(function () { return []; })
+    ]).then(function (r) { STATE.projects = r[0] || []; STATE.clients = r[1] || []; STATE.suppliers = r[2] || []; STATE.employees = r[3] || []; STATE.assets = r[4] || []; });
   }
   function prettyLabel(n) { var k = t(n); if (k && k !== n) return k; return n.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
   function fieldSpec(f) {
@@ -425,6 +473,8 @@
     if (type === 'project') { spec.type = 'select'; spec.options = refOpts('projects'); }
     else if (type === 'supplier') { spec.type = 'select'; spec.options = refOpts('suppliers'); }
     else if (type === 'client') { spec.type = 'select'; spec.options = refOpts('clients'); }
+    else if (type === 'employee') { spec.type = 'select'; spec.options = refOpts('employees'); }
+    else if (type === 'asset') { spec.type = 'select'; spec.options = refOpts('assets'); }
     else if (type === 'select') { spec.type = 'select'; spec.options = f[3] || []; }
     else spec.type = type;
     return spec;

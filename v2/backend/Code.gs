@@ -53,6 +53,9 @@ var ENTITY_MODULE = {
   tenders: 'tendering', tender_costlines: 'tendering',
   daily_site_reports: 'construction', site_instructions: 'construction',
   correspondence: 'correspondence', prequalifications: 'prequal',
+  employees: 'hr', leave_requests: 'hr', timesheets: 'hr', appraisals: 'hr',
+  assets: 'assets', maintenance_records: 'assets', calibration_records: 'assets',
+  hira: 'hse', permits: 'hse', incidents: 'hse', hse_inspections: 'hse',
   approval_requests: 'approvals', approval_steps: 'approvals'
 };
 function moduleOf_(entity) { return ENTITY_MODULE[entity] || 'admin'; }
@@ -264,6 +267,88 @@ function dispatch_(action, body, authCtx) {
     case 'prequal.create':
       requirePermission(authCtx, { module: 'prequal', entity: 'prequalifications', action: 'create' });
       return logged_(authCtx, 'create', 'prequal', 'prequalifications', Prequal.create(body.record || body, authCtx));
+
+    /* ====================== PHASE 4: HR / Assets / HSE ====================== */
+    // HR
+    case 'hr.employee.create':
+      requirePermission(authCtx, { module: 'hr', entity: 'employees', action: 'create' });
+      return logged_(authCtx, 'create', 'hr', 'employees', HR.createEmployee(body.record || body, authCtx));
+    case 'hr.leave.create':
+      requirePermission(authCtx, { module: 'hr', entity: 'leave_requests', action: 'create' });
+      return logged_(authCtx, 'create', 'hr', 'leave_requests', HR.createLeave(body.record || body, authCtx));
+    case 'hr.timesheet.create':
+      requirePermission(authCtx, { module: 'hr', entity: 'timesheets', action: 'create' });
+      return logged_(authCtx, 'create', 'hr', 'timesheets', HR.createTimesheet(body.record || body, authCtx));
+    case 'hr.appraisal.create':
+      requirePermission(authCtx, { module: 'hr', entity: 'appraisals', action: 'create' });
+      return logged_(authCtx, 'create', 'hr', 'appraisals', HR.createAppraisal(body.record || body, authCtx));
+
+    // Asset & Equipment
+    case 'asset.create':
+      requirePermission(authCtx, { module: 'assets', entity: 'assets', action: 'create' });
+      return logged_(authCtx, 'create', 'assets', 'assets', Assets.createAsset(body.record || body, authCtx));
+    case 'asset.maintenance.create':
+      requirePermission(authCtx, { module: 'assets', entity: 'maintenance_records', action: 'create' });
+      return logged_(authCtx, 'create', 'assets', 'maintenance_records', Assets.logMaintenance(body.record || body, authCtx));
+    case 'asset.calibration.create':
+      requirePermission(authCtx, { module: 'assets', entity: 'calibration_records', action: 'create' });
+      return logged_(authCtx, 'create', 'assets', 'calibration_records', Assets.logCalibration(body.record || body, authCtx));
+
+    // HSE
+    case 'hse.hira.create':
+      requirePermission(authCtx, { module: 'hse', entity: 'hira', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'hse', 'hira', HSE.createHIRA(body.record || body, authCtx));
+    case 'hse.permit.create':
+      requirePermission(authCtx, { module: 'hse', entity: 'permits', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'hse', 'permits', HSE.createPermit(body.record || body, authCtx));
+    case 'hse.incident.create':
+      requirePermission(authCtx, { module: 'hse', entity: 'incidents', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'hse', 'incidents', HSE.reportIncident(body.record || body, authCtx));
+    case 'hse.incident.investigate':
+      requireFields(body, ['id']);
+      requirePermission(authCtx, { module: 'hse', entity: 'incidents', action: 'edit' });
+      return logged_(authCtx, 'investigate', 'hse', 'incidents', HSE.investigateIncident(body.id, body.root_cause, body.corrective_action, authCtx));
+    case 'hse.inspection.create':
+      requirePermission(authCtx, { module: 'hse', entity: 'hse_inspections', action: 'create', projectId: (body.record || body).project_id });
+      return logged_(authCtx, 'create', 'hse', 'hse_inspections', HSE.createInspection(body.record || body, authCtx));
+
+    /* ---- dashboard (any authenticated user; results are permission-scoped) ---- */
+    case 'dashboard.summary':
+      return dashboardSummary(authCtx);
+
+    /* ---- notifications (self only) ---- */
+    case 'notifications.list':
+      return listNotifications(authCtx.user.id, { unreadOnly: !!body.unreadOnly, limit: body.limit });
+    case 'notifications.unread':
+      return { count: unreadCount(authCtx.user.id) };
+    case 'notifications.markRead':
+      requireFields(body, ['id']);
+      return markNotificationRead(authCtx.user.id, body.id);
+    case 'notifications.markAllRead':
+      return markAllNotificationsRead(authCtx.user.id);
+
+    /* ---- admin: directory, roles, lookups, audit ---- */
+    case 'admin.users':
+      requirePermission(authCtx, { module: 'admin', entity: 'users', action: 'view' });
+      return adminListUsers();
+    case 'admin.user.detail':
+      requirePermission(authCtx, { module: 'admin', entity: 'users', action: 'view' });
+      requireFields(body, ['id']);
+      return adminUserDetail(body.id);
+    case 'admin.role.revoke':
+      requirePermission(authCtx, { module: 'admin', entity: 'role_assignments', action: 'admin' });
+      requireFields(body, ['assignment_id']);
+      return logged_(authCtx, 'revoke_role', 'admin', 'role_assignments', revokeRoleAssignment(body.assignment_id, actor));
+    case 'admin.lookup.upsert':
+      requirePermission(authCtx, { module: 'admin', entity: 'lookups', action: 'admin' });
+      return logged_(authCtx, 'upsert', 'admin', 'lookups', upsertLookup(body.record || body, actor));
+    case 'admin.permission.delete':
+      requirePermission(authCtx, { module: 'admin', entity: 'permissions', action: 'admin' });
+      requireFields(body, ['id']);
+      return logged_(authCtx, 'delete', 'admin', 'permissions', deletePermissionRow(body.id));
+    case 'admin.audit.recent':
+      requirePermission(authCtx, { module: 'admin', entity: '*', action: 'view' });
+      return recentAudit(body.limit, body.filter);
 
     default:
       throw new AppError('UNKNOWN_ACTION', 'Unknown action: ' + action);

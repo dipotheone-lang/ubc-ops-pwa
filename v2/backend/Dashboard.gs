@@ -1,0 +1,115 @@
+/**
+ * Dashboard.gs — server-side aggregation for the role-aware home dashboard.
+ *
+ * Returns only the KPIs/charts the caller is permitted to see (reuses the RBAC
+ * `can()` check), plus the pending-approval queue, the caller's own open items,
+ * and a recent-activity feed sourced from the audit log. One call replaces the
+ * dozen list round-trips the PWA would otherwise make to render a home screen.
+ */
+
+function dashboardSummary(authCtx) {
+  var canView = function (module, entity) { return can(authCtx, { module: module, entity: entity, action: 'view' }); };
+  var sum = function (rows, col) { return rows.reduce(function (s, r) { return s + (Number(r[col]) || 0); }, 0); };
+  var openOf = function (rows, closed) { return rows.filter(function (r) { return closed.indexOf(String(r.status)) === -1; }); };
+
+  var kpis = [];   // { key, label_en, label_ar, value, unit, link, tone }
+  var charts = {}; // key -> [{ label, value }]
+  var add = function (k, en, ar, value, unit, link, tone) {
+    kpis.push({ key: k, label_en: en, label_ar: ar, value: value, unit: unit || '', link: link || '', tone: tone || '' });
+  };
+  var groupCount = function (rows, col) {
+    var m = {}; rows.forEach(function (r) { var k = String(r[col] || '—'); m[k] = (m[k] || 0) + 1; });
+    return Object.keys(m).map(function (k) { return { label: k, value: m[k] }; });
+  };
+  var groupSum = function (rows, col, valcol) {
+    var m = {}; rows.forEach(function (r) { var k = String(r[col] || '—'); m[k] = (m[k] || 0) + (Number(r[valcol]) || 0); });
+    return Object.keys(m).map(function (k) { return { label: k, value: Math.round(m[k]) }; });
+  };
+
+  /* ---- masters ---- */
+  if (canView('masters', 'projects')) {
+    var projects = dbList('projects');
+    add('projects_active', 'Active projects', 'مشاريع نشطة',
+      projects.filter(function (p) { return String(p.status) === 'Active'; }).length, '', 'projects', 'primary');
+    charts.projects_status = groupCount(projects, 'status');
+  }
+  if (canView('masters', 'clients')) add('clients', 'Clients', 'العملاء', dbList('clients').length, '', 'clients');
+  if (canView('masters', 'suppliers')) add('suppliers', 'Suppliers', 'الموردون', dbList('suppliers').length, '', 'suppliers');
+
+  /* ---- procurement ---- */
+  if (canView('procurement', 'material_requisitions')) {
+    var mrs = dbList('material_requisitions');
+    add('mr_open', 'Open requisitions', 'طلبات شراء مفتوحة', openOf(mrs, ['Closed', 'Rejected']).length, '', 'procurement', 'warn');
+    charts.mr_status = groupCount(mrs, 'status');
+  }
+  if (canView('procurement', 'purchase_orders')) {
+    var pos = dbList('purchase_orders');
+    add('po_value', 'PO value', 'قيمة أوامر التوريد', Math.round(sum(pos, 'total')), CONFIG.BASE_CURRENCY, 'procurement');
+  }
+
+  /* ---- warehouse ---- */
+  if (canView('warehouse', 'stock_items')) {
+    var stock = dbList('stock_items');
+    var low = stock.filter(function (s) { return Number(s.qty_on_hand) < Number(s.min_level || 0); });
+    add('low_stock', 'Low-stock items', 'أصناف تحت الحد', low.length, '', 'warehouse', low.length ? 'danger' : 'ok');
+  }
+
+  /* ---- finance ---- */
+  if (canView('finance', 'payment_vouchers')) {
+    var pvs = dbList('payment_vouchers');
+    add('pv_pending', 'Payments awaiting', 'مدفوعات معلقة',
+      pvs.filter(function (p) { return String(p.status) === 'Submitted'; }).length, '', 'finance', 'warn');
+  }
+  if (canView('finance', 'expenses')) {
+    var exps = dbList('expenses');
+    add('expense_total', 'Expenses', 'المصروفات', Math.round(sum(exps, 'amount')), CONFIG.BASE_CURRENCY, 'finance');
+    charts.expense_category = groupSum(exps, 'category', 'amount');
+  }
+
+  /* ---- technical office ---- */
+  if (canView('techoffice', 'ncrs')) {
+    var ncrs = dbList('ncrs');
+    add('ncr_open', 'Open NCRs', 'تقارير عدم مطابقة',
+      openOf(ncrs, ['Closed', 'Disposed']).length, '', 'techoffice', 'warn');
+  }
+
+  /* ---- business development ---- */
+  if (canView('bd', 'opportunities')) {
+    var opps = dbList('opportunities');
+    var openOpps = opps.filter(function (o) { return String(o.status) === 'Open'; });
+    add('pipeline', 'Pipeline value', 'قيمة الفرص', Math.round(sum(openOpps, 'estimated_value')), CONFIG.BASE_CURRENCY, 'bd', 'primary');
+    charts.opp_stage = groupCount(openOpps, 'stage');
+  }
+
+  /* ---- tendering ---- */
+  if (canView('tendering', 'tenders')) {
+    var tenders = dbList('tenders');
+    add('tenders_active', 'Active tenders', 'عطاءات نشطة',
+      openOf(tenders, ['Awarded', 'Lost', 'Closed']).length, '', 'tendering');
+  }
+
+  /* ---- approvals & my work ---- */
+  var pending = pendingApprovalsFor(authCtx);
+  add('approvals_pending', 'Awaiting my approval', 'بانتظار اعتمادي', pending.length, '', 'approvals', pending.length ? 'danger' : 'ok');
+
+  var myReqs = dbList('approval_requests', { initiator_user: authCtx.user.id, status: 'Pending' });
+  add('my_pending', 'My pending requests', 'طلباتي المعلقة', myReqs.length, '', 'approvals');
+
+  /* ---- recent activity (audit) ---- */
+  var isAdmin = can(authCtx, { module: 'admin', entity: '*', action: 'view' });
+  var log = dbList('audit_log');
+  if (!isAdmin) log = log.filter(function (a) { return String(a.user_id) === String(authCtx.user.id); });
+  log.sort(function (a, b) { return String(b.ts).localeCompare(String(a.ts)); });
+  var recent = log.slice(0, 12).map(function (a) {
+    return { ts: a.ts, action: a.action, module: a.module, entity: a.entity, user_email: a.user_email, amount: a.amount, note: a.note };
+  });
+
+  return {
+    kpis: kpis,
+    charts: charts,
+    pending_approvals: pending.length,
+    my_pending: myReqs.length,
+    recent: recent,
+    generated_at: nowIso()
+  };
+}

@@ -62,6 +62,12 @@ function createApprovalRequest(spec, actor) {
   audit({ user_id: spec.initiator_user, action: 'approval_created', module: 'approvals',
     entity: spec.entity, record_id: spec.record_id, project_id: spec.project_id, amount: spec.amount,
     note: spec.domain + ' band:' + band.id });
+  // Notify the first step's approvers (never the initiator — SoD).
+  notifyRoles_(chain[0].roles || [], {
+    type: 'approval', title: 'Approval needed',
+    body: spec.domain + ' • ' + (coerceNumber(spec.amount) || 0) + ' ' + (spec.currency || CONFIG.BASE_CURRENCY),
+    link: 'approvals', entity: spec.entity, record_id: spec.record_id, project_id: spec.project_id
+  }, spec.initiator_user);
   return { request: req, steps: steps };
 }
 
@@ -108,6 +114,10 @@ function decideApproval(requestId, authCtx, decision, comment) {
       applyApprovalOutcome_(req, 'Rejected');
       audit({ user_id: authCtx.user.id, user_email: authCtx.user.email, action: 'approval_rejected', module: 'approvals',
         entity: req.entity, record_id: req.record_id, project_id: req.project_id, amount: req.amount, note: comment });
+      notify_(req.initiator_user, {
+        type: 'rejected', title: 'Request rejected',
+        body: req.entity + ' • ' + (req.amount || 0) + ' ' + (req.currency || '') + (comment ? (' — ' + comment) : ''),
+        link: 'approvals', entity: req.entity, record_id: req.record_id, project_id: req.project_id });
       return finalizeAndReturn_(requestId);
     }
 
@@ -139,10 +149,21 @@ function decideApproval(requestId, authCtx, decision, comment) {
         dbUpdate('approval_requests', requestId, { status: 'Approved', current_step: req.total_steps, updated_at: nowIso(), closed_at: nowIso() }, authCtx.user.email);
         applyApprovalOutcome_(req, 'Approved');
         audit({ user_id: authCtx.user.id, user_email: authCtx.user.email, action: 'approval_completed', module: 'approvals', entity: req.entity, record_id: req.record_id });
+        notify_(req.initiator_user, {
+          type: 'approved', title: 'Request approved',
+          body: req.entity + ' • ' + (req.amount || 0) + ' ' + (req.currency || ''),
+          link: 'approvals', entity: req.entity, record_id: req.record_id, project_id: req.project_id });
       } else {
-        // activate next step
+        // activate next step + notify its approvers
         var steps = dbList('approval_steps', { request_id: requestId });
-        for (var i = 0; i < steps.length; i++) if (Number(steps[i].step_no) === next) dbUpdate('approval_steps', steps[i].id, { status: 'Active' }, 'system');
+        for (var i = 0; i < steps.length; i++) if (Number(steps[i].step_no) === next) {
+          dbUpdate('approval_steps', steps[i].id, { status: 'Active' }, 'system');
+          notifyRoles_(JSON.parse(steps[i].roles_json || '[]'), {
+            type: 'approval', title: 'Approval needed',
+            body: req.domain + ' • ' + (req.amount || 0) + ' ' + (req.currency || ''),
+            link: 'approvals', entity: req.entity, record_id: req.record_id, project_id: req.project_id
+          }, req.initiator_user);
+        }
         dbUpdate('approval_requests', requestId, { current_step: next, updated_at: nowIso() }, authCtx.user.email);
       }
     }

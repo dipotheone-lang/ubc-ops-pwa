@@ -113,6 +113,12 @@ var SCHEMA = {
     columns: ['id', 'category', 'code', 'label_en', 'label_ar', 'sort', 'active'].concat(AUDIT_COLUMNS),
     enums: { active: ['TRUE', 'FALSE'] }
   },
+  notifications: {
+    sheet: 'Notifications', pk: 'id',
+    fk: { user_id: 'users' },
+    columns: ['id', 'user_id', 'type', 'title', 'body', 'link', 'entity', 'record_id', 'project_id', 'read', 'created_at'],
+    enums: { read: ['TRUE', 'FALSE'] }
+  },
 
   /* ----- masters ----- */
   clients: {
@@ -300,6 +306,75 @@ var SCHEMA = {
     sheet: 'Prequalifications', pk: 'id', fk: { client_id: 'clients' },
     columns: ['id', 'prq_number', 'client_id', 'submitted_date', 'portal', 'scope', 'status', 'notes'].concat(AUDIT_COLUMNS),
     enums: { status: ['Draft', 'Submitted', 'Approved', 'Rejected', 'Expired'] }
+  },
+
+  /* ================= PHASE 4 — people, assets & safety ================= */
+
+  /* ---- HR ---- */
+  employees: {
+    sheet: 'Employees', pk: 'id', fk: { user_id: 'users' },
+    columns: ['id', 'emp_code', 'full_name_en', 'full_name_ar', 'national_id', 'title', 'grade', 'department',
+      'hire_date', 'contract_type', 'basic_salary', 'currency', 'phone', 'user_id', 'status'].concat(AUDIT_COLUMNS),
+    enums: { contract_type: ['Permanent', 'Fixed-Term', 'Daily', 'Consultant'], currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['Active', 'On Leave', 'Suspended', 'Terminated'] }
+  },
+  leave_requests: {
+    sheet: 'LeaveRequests', pk: 'id', fk: { employee_id: 'employees' },
+    columns: ['id', 'leave_number', 'employee_id', 'type', 'from_date', 'to_date', 'days', 'reason', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Annual', 'Sick', 'Unpaid', 'Casual', 'Other'], status: ['Draft', 'Submitted', 'Approved', 'Rejected'] }
+  },
+  timesheets: {
+    sheet: 'Timesheets', pk: 'id', fk: { employee_id: 'employees', project_id: 'projects' },
+    columns: ['id', 'ts_number', 'employee_id', 'project_id', 'period', 'days_worked', 'ot_hours', 'status'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Draft', 'Submitted', 'Approved'] }
+  },
+  appraisals: {
+    sheet: 'Appraisals', pk: 'id', fk: { employee_id: 'employees' },
+    columns: ['id', 'appr_number', 'employee_id', 'period', 'rating', 'reviewer_user', 'strengths', 'improvements', 'status'].concat(AUDIT_COLUMNS),
+    enums: { rating: ['', '1', '2', '3', '4', '5'], status: ['Draft', 'Submitted', 'Finalized'] }
+  },
+
+  /* ---- Asset & Equipment ---- */
+  assets: {
+    sheet: 'Assets', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'asset_code', 'name', 'category', 'serial_no', 'acquisition_date', 'cost', 'currency',
+      'location', 'assigned_to', 'project_id', 'status'].concat(AUDIT_COLUMNS),
+    enums: { category: ['Heavy Equipment', 'Vehicle', 'Tools', 'IT', 'Survey', 'Other'], currency: ['EGP', 'USD', 'EUR', 'GBP'],
+      status: ['In Service', 'Idle', 'Under Maintenance', 'Disposed'] }
+  },
+  maintenance_records: {
+    sheet: 'MaintenanceRecords', pk: 'id', fk: { asset_id: 'assets' },
+    columns: ['id', 'mnt_number', 'asset_id', 'type', 'mnt_date', 'description', 'cost', 'next_due', 'performed_by'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Preventive', 'Corrective', 'Inspection'] }
+  },
+  calibration_records: {
+    sheet: 'CalibrationRecords', pk: 'id', fk: { asset_id: 'assets' },
+    columns: ['id', 'cal_number', 'asset_id', 'cert_no', 'calibrated_date', 'due_date', 'status'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Valid', 'Due', 'Expired'] }
+  },
+
+  /* ---- HSE ---- */
+  hira: {
+    sheet: 'HIRA', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'hira_number', 'project_id', 'activity', 'hazards', 'risk_score', 'controls', 'residual_score', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Draft', 'Submitted', 'Approved', 'Rejected'] }
+  },
+  permits: {
+    sheet: 'Permits', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'permit_number', 'project_id', 'type', 'valid_from', 'valid_to', 'issued_to', 'status', 'approval_id'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Hot Work', 'Confined Space', 'Working at Height', 'Excavation', 'Electrical', 'Lifting', 'Energization', 'General'],
+      status: ['Draft', 'Submitted', 'Approved', 'Active', 'Closed', 'Rejected'] }
+  },
+  incidents: {
+    sheet: 'Incidents', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'incident_number', 'project_id', 'incident_date', 'type', 'description', 'severity', 'root_cause', 'corrective_action', 'status'].concat(AUDIT_COLUMNS),
+    enums: { type: ['Near Miss', 'First Aid', 'Medical Treatment', 'Lost Time', 'Fatality', 'Environmental'],
+      severity: ['Low', 'Medium', 'High', 'Critical'], status: ['Open', 'Investigating', 'Closed'] }
+  },
+  hse_inspections: {
+    sheet: 'HSEInspections', pk: 'id', fk: { project_id: 'projects' },
+    columns: ['id', 'insp_number', 'project_id', 'inspection_date', 'area', 'findings', 'score', 'status'].concat(AUDIT_COLUMNS),
+    enums: { status: ['Open', 'Closed'] }
   }
 };
 
@@ -459,7 +534,24 @@ var SEED_PERMISSIONS = [
   /* ---- Phase 3: UBC-as-supplier Prequalification ---- */
   ['PTS_HEAD', 'prequal', '*', 'view', 'GLOBAL'], ['PTS_HEAD', 'prequal', '*', 'create', 'GLOBAL'], ['PTS_HEAD', 'prequal', '*', 'edit', 'GLOBAL'],
   ['BD_MGR', 'prequal', '*', 'view', 'GLOBAL'], ['BD_MGR', 'prequal', '*', 'create', 'GLOBAL'],
-  ['PROCUREMENT_MGR', 'prequal', '*', 'view', 'GLOBAL']
+  ['PROCUREMENT_MGR', 'prequal', '*', 'view', 'GLOBAL'],
+
+  /* ---- Phase 4: HR ---- */
+  ['HR_MGR', 'hr', '*', 'view', 'GLOBAL'], ['HR_MGR', 'hr', '*', 'create', 'GLOBAL'], ['HR_MGR', 'hr', '*', 'edit', 'GLOBAL'], ['HR_MGR', 'hr', '*', 'submit', 'GLOBAL'],
+  ['EMPLOYEE', 'hr', 'leave_requests', 'create', 'GLOBAL'], ['EMPLOYEE', 'hr', 'leave_requests', 'submit', 'GLOBAL'], ['EMPLOYEE', 'hr', 'leave_requests', 'view', 'OWN'],
+  ['EMPLOYEE', 'hr', 'timesheets', 'create', 'GLOBAL'], ['EMPLOYEE', 'hr', 'timesheets', 'view', 'OWN'],
+  ['PROJECT_MGR', 'hr', 'timesheets', 'view', 'PROJECT'],
+
+  /* ---- Phase 4: Asset & Equipment ---- */
+  ['ASSET_LEAD', 'assets', '*', 'view', 'GLOBAL'], ['ASSET_LEAD', 'assets', '*', 'create', 'GLOBAL'], ['ASSET_LEAD', 'assets', '*', 'edit', 'GLOBAL'],
+  ['CONSTRUCTION_MGR', 'assets', '*', 'view', 'GLOBAL'], ['CONSTRUCTION_MGR', 'assets', '*', 'create', 'GLOBAL'], ['CONSTRUCTION_MGR', 'assets', '*', 'edit', 'GLOBAL'],
+  ['PROJECT_MGR', 'assets', '*', 'view', 'PROJECT'], ['STOREKEEPER', 'assets', '*', 'view', 'PROJECT'],
+
+  /* ---- Phase 4: HSE ---- */
+  ['HSE_MGR', 'hse', '*', 'view', 'GLOBAL'], ['HSE_MGR', 'hse', '*', 'create', 'GLOBAL'], ['HSE_MGR', 'hse', '*', 'edit', 'GLOBAL'], ['HSE_MGR', 'hse', '*', 'submit', 'GLOBAL'],
+  ['HSE_OFFICER', 'hse', '*', 'view', 'PROJECT'], ['HSE_OFFICER', 'hse', '*', 'create', 'PROJECT'], ['HSE_OFFICER', 'hse', '*', 'submit', 'PROJECT'],
+  ['PROJECT_MGR', 'hse', '*', 'view', 'PROJECT'], ['PROJECT_MGR', 'hse', 'hira', 'create', 'PROJECT'], ['PROJECT_MGR', 'hse', 'permits', 'create', 'PROJECT'],
+  ['SITE_ENGINEER', 'hse', 'incidents', 'create', 'PROJECT'], ['SITE_ENGINEER', 'hse', '*', 'view', 'PROJECT']
 ];
 
 /**
@@ -508,7 +600,19 @@ var SEED_DOA = [
   ['contract_sign', 'sign', 0, null, [{ mode: 'all', roles: ['CEO'] }], 'Sign client contract: CEO only (all values)'],
 
   // ---- Project Charter (not amount-based: PM initiates → TPM Head → COO) ----
-  ['charter', 'sign', 0, null, [{ mode: 'all', roles: ['TPM_HEAD'] }, { mode: 'all', roles: ['COO'] }], 'Charter: TPM Head + COO']
+  ['charter', 'sign', 0, null, [{ mode: 'all', roles: ['TPM_HEAD'] }, { mode: 'all', roles: ['COO'] }], 'Charter: TPM Head + COO'],
+
+  // ---- HR leave (line manager / HR) ----
+  ['hr_leave', 'approve', 0, null, [{ mode: 'all', roles: ['HR_MGR'] }], 'Leave: HR Manager'],
+
+  // ---- HSE residual-risk sign-off (amount = residual risk score 1–25) ----
+  ['hse_risk', 'approve', 0, 7, [{ mode: 'all', roles: ['PROJECT_MGR'] }], 'Residual risk ≤7 (Low): PM'],
+  ['hse_risk', 'approve', 8, 11, [{ mode: 'all', roles: ['HSE_MGR'] }], 'Residual risk 8–11 (Medium): HSE Mgr'],
+  ['hse_risk', 'approve', 12, 16, [{ mode: 'all', roles: ['COO'] }], 'Residual risk 12–16 (High): COO'],
+  ['hse_risk', 'approve', 17, 25, [{ mode: 'all', roles: ['CEO'] }], 'Residual risk 17–25 (Extreme): CEO'],
+
+  // ---- Permit to Work ----
+  ['hse_permit', 'approve', 0, null, [{ mode: 'all', roles: ['HSE_MGR'] }], 'Permit to Work: HSE Manager']
 ];
 
 /** Sectors lookup seed (bilingual). */

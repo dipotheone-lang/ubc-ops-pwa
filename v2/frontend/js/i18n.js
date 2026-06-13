@@ -28,7 +28,19 @@
       view_approval: 'Approval', remove: 'Remove',
       bd: 'Business Dev', tendering: 'Tendering', construction: 'Construction', correspondence: 'Correspondence', prequal: 'Prequalification',
       opp: 'Opportunity', interaction: 'Interaction', tender: 'Tender', dsr: 'Daily Report', si: 'Site Instruction',
-      letter: 'Letter', prq: 'Prequalification', award: 'Award', mark_lost: 'Mark Lost', won: 'Won', issue: 'Issue', advance: 'Advance'
+      letter: 'Letter', prq: 'Prequalification', award: 'Award', mark_lost: 'Mark Lost', won: 'Won', issue: 'Issue', advance: 'Advance',
+      hr: 'Human Resources', assets: 'Asset & Equipment', assets_m: 'Asset & Equipment', hse: 'HSE',
+      employee: 'Employee', leave: 'Leave', timesheet: 'Timesheet', appraisal: 'Appraisal',
+      asset: 'Asset', maintenance: 'Maintenance', calibration: 'Calibration',
+      hira: 'Risk Assessment', permit: 'Permit to Work', incident: 'Incident', inspection: 'Inspection',
+      notifications: 'Notifications', mark_all_read: 'Mark all read', no_notifications: 'No notifications',
+      just_now: 'just now', m_ago: 'm', h_ago: 'h', d_ago: 'd', recent_activity: 'Recent activity', no_kpis: 'No metrics available yet.',
+      stage: 'Stage', category: 'Category', roles: 'Roles', permissions: 'Permissions', permission: 'Permission',
+      module: 'Module', entity: 'Entity', action: 'Action', scope: 'Scope', min: 'Min', max: 'Max',
+      description: 'Description', signer_chain: 'Signer chain', bad_json: 'Invalid JSON', manage_roles: 'Manage roles',
+      reset_password: 'Reset password', deactivate: 'Deactivate', activate: 'Activate', edit: 'Edit', phone: 'Phone',
+      title: 'Title', language: 'Language', active_y: 'Active', inactive_y: 'Inactive', revoke: 'Revoke',
+      lookups: 'Lookups', audit: 'Audit log', temp_pw_hint: 'Share this with the user — they must change it on first login.'
     },
     ar: {
       app: 'عمليات الأخوة المتحدين', login: 'تسجيل الدخول', email: 'البريد الإلكتروني', password: 'كلمة المرور',
@@ -53,7 +65,19 @@
       view_approval: 'الاعتماد', remove: 'حذف',
       bd: 'تطوير الأعمال', tendering: 'العطاءات', construction: 'الإنشاءات', correspondence: 'المراسلات', prequal: 'التأهيل',
       opp: 'فرصة', interaction: 'تواصل', tender: 'عطاء', dsr: 'تقرير يومي', si: 'تعليمات موقع',
-      letter: 'خطاب', prq: 'تأهيل', award: 'ترسية', mark_lost: 'خسارة', won: 'فوز', issue: 'إصدار', advance: 'ترقية'
+      letter: 'خطاب', prq: 'تأهيل', award: 'ترسية', mark_lost: 'خسارة', won: 'فوز', issue: 'إصدار', advance: 'ترقية',
+      hr: 'الموارد البشرية', assets: 'الأصول والمعدات', assets_m: 'الأصول والمعدات', hse: 'السلامة والصحة المهنية',
+      employee: 'موظف', leave: 'إجازة', timesheet: 'سجل الحضور', appraisal: 'تقييم أداء',
+      asset: 'أصل', maintenance: 'صيانة', calibration: 'معايرة',
+      hira: 'تقييم المخاطر', permit: 'تصريح عمل', incident: 'حادث', inspection: 'تفتيش',
+      notifications: 'الإشعارات', mark_all_read: 'تحديد الكل كمقروء', no_notifications: 'لا توجد إشعارات',
+      just_now: 'الآن', m_ago: ' د', h_ago: ' س', d_ago: ' ي', recent_activity: 'النشاط الأخير', no_kpis: 'لا توجد مؤشرات بعد.',
+      stage: 'المرحلة', category: 'الفئة', roles: 'الأدوار', permissions: 'الصلاحيات', permission: 'صلاحية',
+      module: 'الوحدة', entity: 'الكيان', action: 'الإجراء', scope: 'النطاق', min: 'الحد الأدنى', max: 'الحد الأقصى',
+      description: 'الوصف', signer_chain: 'سلسلة الاعتماد', bad_json: 'صيغة JSON غير صحيحة', manage_roles: 'إدارة الأدوار',
+      reset_password: 'إعادة تعيين كلمة المرور', deactivate: 'تعطيل', activate: 'تفعيل', edit: 'تعديل', phone: 'الهاتف',
+      title: 'المسمى الوظيفي', language: 'اللغة', active_y: 'نشط', inactive_y: 'غير نشط', revoke: 'إلغاء',
+      lookups: 'القوائم', audit: 'سجل التدقيق', temp_pw_hint: 'شاركها مع المستخدم — يجب تغييرها عند أول دخول.'
     }
   };
 

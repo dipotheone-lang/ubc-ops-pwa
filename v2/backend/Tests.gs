@@ -6,7 +6,7 @@
 function runAllTests() {
   initializeWorkbook(); // idempotent
   var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD,
-    t_phase2Procurement, t_phase2GrnStock, t_phase3Tender];
+    t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -150,6 +150,27 @@ function t_phase3Tender() {
   dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
   dbDelete('approval_requests', sub.request.id); dbDelete('tenders', res.header.id);
   rmUser_(initiator); rmUser_(pts); rmUser_(cfo); dbDelete('clients', client.id);
+}
+
+function t_phase4HseRisk() {
+  // band resolution by residual risk score
+  assertEq_(JSON.parse(resolveBand('hse_risk', 'approve', 5).signer_chain_json)[0].roles[0], 'PROJECT_MGR', 'risk 5 → PM');
+  assertEq_(JSON.parse(resolveBand('hse_risk', 'approve', 9).signer_chain_json)[0].roles[0], 'HSE_MGR', 'risk 9 → HSE_MGR');
+  assertEq_(JSON.parse(resolveBand('hse_risk', 'approve', 14).signer_chain_json)[0].roles[0], 'COO', 'risk 14 → COO');
+  assertEq_(JSON.parse(resolveBand('hse_risk', 'approve', 20).signer_chain_json)[0].roles[0], 'CEO', 'risk 20 → CEO');
+  // HIRA at residual 9 → submit → HSE_MGR approves → Approved
+  var client = dbInsert('clients', { client_code: 'P4', name_en: 'P4', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'P4-PRJ', client_id: client.id, name_en: 'P4 Proj', status: 'Active' }, 'test');
+  var eng = mkUser_('SITE_ENGINEER'), hseMgr = mkUser_('HSE_MGR');
+  var h = HSE.createHIRA({ project_id: proj.id, activity: 'Hot work near tank', hazards: 'Fire', residual_score: 9, controls: 'Permit + watch' }, eng);
+  var sub = submitDocument('hira', h.id, eng);
+  assertEq_(JSON.parse(sub.steps[0].roles_json)[0], 'HSE_MGR', 'HIRA score 9 routes to HSE_MGR');
+  var r = decideApproval(sub.request.id, hseMgr, 'approve', 'controls adequate');
+  assertEq_(r.request.status, 'Approved', 'HIRA approved by HSE_MGR');
+  assertEq_(dbGet('hira', h.id).status, 'Approved', 'HIRA status flipped');
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id); dbDelete('hira', h.id);
+  rmUser_(eng); rmUser_(hseMgr); dbDelete('projects', proj.id); dbDelete('clients', client.id);
 }
 
 function t_approvalSoD() {

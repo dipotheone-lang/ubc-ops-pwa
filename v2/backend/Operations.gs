@@ -30,7 +30,10 @@ var SUBMIT_MAP = {
   variation_orders: { domain: 'vor', action: 'approve', amount: 'amount' },
   interim_payment_certs: { domain: 'einvoice', action: 'issue', amount: 'net_amount' },
   project_charters: { domain: 'charter', action: 'sign', amount: 'budget' },
-  tenders: { domain: 'tender_submit', action: 'approve', amount: 'estimated_value' }
+  tenders: { domain: 'tender_submit', action: 'approve', amount: 'estimated_value' },
+  leave_requests: { domain: 'hr_leave', action: 'approve', amount: 'days' },
+  hira: { domain: 'hse_risk', action: 'approve', amount: 'residual_score' },
+  permits: { domain: 'hse_permit', action: 'approve' }
 };
 
 /** Submit a draft document into the approval workflow. */
