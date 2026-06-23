@@ -27,16 +27,70 @@
     });
   }
 
+  /* ----------------------- icon + nav helpers -------------------------- */
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function icon(id, size, stroke) {
+    var svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('width', size || 18); svg.setAttribute('height', size || 18);
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', stroke || 'currentColor');
+    svg.setAttribute('stroke-width', '1.7'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('class', 'nav-ic');
+    var use = document.createElementNS(SVGNS, 'use'); use.setAttribute('href', '#' + id); svg.appendChild(use);
+    return svg;
+  }
+  var NAV_ICONS = { dashboard: 'ic-dashboard', approvals: 'ic-approvals', clients: 'ic-clients', suppliers: 'ic-suppliers',
+    projects: 'ic-projects', procurement: 'ic-procurement', warehouse: 'ic-warehouse', finance: 'ic-finance',
+    techoffice: 'ic-tech', bd: 'ic-bd', tendering: 'ic-tendering', construction: 'ic-construction',
+    correspondence: 'ic-correspondence', prequal: 'ic-prequal', hr: 'ic-hr', hse: 'ic-hse', assets: 'ic-assets',
+    users: 'ic-admin', settings: 'ic-settings' };
+  function navLabel(r) { return ({ users: t('admin'), assets: t('assets_m') })[r] || t(r); }
+  function initials(u) {
+    var nm = (u.full_name_en || u.email || '').trim();
+    var parts = nm.split(/\s+/); return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || '') || (nm[0] || 'U');
+  }
+  function logout() {
+    document.getElementById('sidebar').classList.remove('open');
+    Promise.resolve(API.logout ? API.logout() : null).then(function () { STATE.user = null; STATE.view = null; showLogin(); });
+  }
+
   /* ----------------------------- login --------------------------------- */
-  function showLogin() {
+  function loginShell() {
     var root = document.getElementById('root'); UI.clear(root);
     document.getElementById('appbar').style.display = 'none';
     document.querySelector('.layout').style.display = 'none';
     root.style.display = 'block';
+    return root;
+  }
+  function loginHero() {
+    var ar = I18N.current() === 'ar';
+    function stat3(v, l) { return el('div', {}, [el('div', { class: 'sv', text: v }), el('div', { class: 'sl', text: l })]); }
+    return el('div', { class: 'login-hero' }, [
+      el('div', { class: 'ring', style: 'inset-inline-end:-90px;top:-90px;width:340px;height:340px' }),
+      el('div', { class: 'ring', style: 'inset-inline-end:40px;top:160px;width:160px;height:160px;border-color:rgba(199,162,76,.10)' }),
+      el('div', { class: 'login-brand' }, [
+        el('div', { class: 'sidebar-logo' }, [el('img', { src: 'assets/ub-mark.png', alt: 'UB' })]),
+        el('div', {}, [el('div', { class: 'b1', text: 'UNITED BROTHERS' }), el('div', { class: 'b2', text: ar ? 'منصة العمليات' : 'Operations Platform' })])
+      ]),
+      el('div', { class: 'login-hero-mid' }, [
+        el('div', { class: 'login-pill', text: ar ? 'مقاولات · توريدات · خدمات صناعية' : 'Contracting · Supplies · Industrial Services' }),
+        el('div', { class: 'login-headline', text: ar ? 'منصة عمليات متكاملة للمشاريع والاعتمادات والرقابة' : 'One platform for projects, approvals & control' }),
+        el('div', { class: 'login-sub', text: ar ? 'تسع إدارات عبر محرك صلاحيات واحد، مع تتبّع كامل.' : 'Nine departments, one delegation-of-authority engine, full traceability.' }),
+        el('div', { class: 'login-quote', text: '“Built on Trust. Driven by Excellence.”' })
+      ]),
+      el('div', { class: 'login-stats' }, [
+        stat3('59', ar ? 'مشروع منجز' : 'Projects done'), stat3('31+', ar ? 'عميل' : 'Clients'), stat3('98M+', ar ? 'ج.م إيرادات' : 'EGP revenue')
+      ])
+    ]);
+  }
+  function showLogin() {
+    var root = loginShell();
+    var ar = I18N.current() === 'ar';
     var card = el('div', { class: 'login-card' });
+    card.appendChild(el('button', { class: 'link-btn', style: 'float:inline-end', onclick: function () { I18N.toggle(); showLogin(); } }, [I18N.t('lang_toggle')]));
+    card.appendChild(el('div', { style: 'clear:both;height:4px' }));
     card.appendChild(el('img', { class: 'login-logo', src: 'assets/ub-logo.png', alt: 'United Brothers Co.' }));
-    card.appendChild(el('h1', { text: t('app') }));
-    card.appendChild(el('p', { class: 'muted', text: STATE.company ? '' : 'UBcsis — CR 66236' }));
+    card.appendChild(el('h1', { text: ar ? 'تسجيل الدخول' : 'Sign in' }));
+    card.appendChild(el('p', { class: 'muted', text: ar ? 'إلى منصة عمليات الأخوة المتحدين' : 'to United Brothers Operations' }));
 
     var urlField = API.getBase() ? null : el('div', { class: 'field' }, [
       el('label', { text: t('server_url') }),
@@ -56,14 +110,18 @@
         return afterLogin();
       });
     });
+    var btn = f.form.querySelector('button[type=submit]'); if (btn) btn.className = 'btn cta';
     card.appendChild(f.form);
-    card.appendChild(el('button', { class: 'link-btn', text: I18N.t('lang_toggle'), onclick: function () { I18N.toggle(); showLogin(); } }));
-    root.appendChild(card);
+    card.appendChild(el('div', { class: 'login-foot', text: 'UBCSIS · CR 66236 · Tax ID 545-821-037 · Suez, Egypt' }));
+    root.appendChild(el('div', { class: 'login-split' }, [loginHero(), el('div', { class: 'login-panel' }, [card])]));
   }
 
+  function loginCenter(card) {
+    var root = loginShell();
+    root.appendChild(el('div', { class: 'login-split' }, [loginHero(), el('div', { class: 'login-panel' }, [card])]));
+  }
   function forceReset() {
-    var root = document.getElementById('root'); UI.clear(root);
-    root.appendChild(el('div', { class: 'login-card' }, [
+    loginCenter(el('div', { class: 'login-card' }, [
       el('h2', { text: t('change_password') }),
       el('p', { class: 'muted', text: t('must_reset') }),
       UI.form([{ name: 'newp', label: t('new_password'), type: 'password', required: true }], t('save'), function (v) {
@@ -78,8 +136,7 @@
     ]));
   }
   function resetWithOld() {
-    var root = document.getElementById('root'); UI.clear(root);
-    root.appendChild(el('div', { class: 'login-card' }, [
+    loginCenter(el('div', { class: 'login-card' }, [
       el('h2', { text: t('change_password') }),
       UI.form([
         { name: 'oldp', label: t('old_password'), type: 'password', required: true },
@@ -109,10 +166,31 @@
     var root = document.getElementById('root'); UI.clear(root); root.style.display = 'none';
     document.querySelector('.layout').style.display = 'flex';
     document.getElementById('appbar').style.display = 'flex';
-    document.getElementById('app-title').textContent = t('app');
     var who = document.getElementById('whoami');
     who.textContent = (I18N.current() === 'ar' ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email;
-    document.getElementById('lang-btn').textContent = I18N.t('lang_toggle');
+    var langBtn = document.getElementById('lang-btn');
+    var langSpan = langBtn ? langBtn.querySelector('span') : null;
+    if (langSpan) langSpan.textContent = I18N.t('lang_toggle'); else if (langBtn) langBtn.textContent = I18N.t('lang_toggle');
+
+    var ar = I18N.current() === 'ar';
+
+    // sidebar header — logo badge + brand
+    var head = document.getElementById('sidebar-head'); UI.clear(head);
+    head.appendChild(el('div', { class: 'sidebar-logo' }, [el('img', { src: 'assets/ub-mark.png', alt: 'UB' })]));
+    head.appendChild(el('div', { style: 'min-width:0' }, [
+      el('div', { class: 'sidebar-brand-name', text: ar ? 'الأخوة المتحدون' : 'United Brothers' }),
+      el('div', { class: 'sidebar-brand-sub', text: ar ? 'منصة العمليات' : 'Operations Platform' })
+    ]));
+
+    // sidebar footer — user identity + logout
+    var foot = document.getElementById('sidebar-foot'); UI.clear(foot);
+    var roleName = (STATE.roles && STATE.roles[0]) ? (ar ? (STATE.roles[0].name_ar || STATE.roles[0].name_en) : (STATE.roles[0].name_en || STATE.roles[0].name)) : '';
+    foot.appendChild(el('div', { class: 'sidebar-avatar', text: initials(STATE.user).toUpperCase() }));
+    foot.appendChild(el('div', { style: 'flex:1;min-width:0' }, [
+      el('div', { class: 'sidebar-user-name', text: (ar ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email }),
+      el('div', { class: 'sidebar-user-role', text: roleName || STATE.user.email })
+    ]));
+    foot.appendChild(el('button', { class: 'logout', title: t('logout'), onclick: logout }, [icon('ic-logout', 16)]));
 
     // nav — grouped into ERP module sections
     var nav = document.getElementById('nav'); UI.clear(nav);
@@ -126,8 +204,6 @@
         default: return canModule(r);
       }
     }
-    var navLabels = { users: t('admin'), assets: t('assets_m') };
-    function navLabel(r) { return navLabels[r] || t(r); }
     var GROUPS = [
       { title: '', items: ['dashboard', 'approvals'] },
       { title: t('grp_commercial'), items: ['bd', 'tendering', 'clients', 'prequal'] },
@@ -143,8 +219,13 @@
       if (!vis.length) return;
       if (g.title) nav.appendChild(el('div', { class: 'nav-group-title', text: g.title }));
       vis.forEach(function (r) {
-        nav.appendChild(el('a', { class: 'nav-item' + (STATE.view === r ? ' active' : ''), href: 'javascript:void 0',
-          onclick: function () { go(r); } }, [navLabel(r) + (r === 'approvals' && STATE.pending ? ' (' + STATE.pending + ')' : '')]));
+        var item = el('a', { class: 'nav-item' + (STATE.view === r ? ' active' : ''), href: 'javascript:void 0',
+          onclick: function () { go(r); document.getElementById('sidebar').classList.remove('open'); } });
+        item.setAttribute('data-route', r);
+        item.appendChild(icon(NAV_ICONS[r] || 'ic-dashboard', 18));
+        item.appendChild(el('span', { class: 'nav-label', text: navLabel(r) }));
+        if (r === 'approvals' && STATE.pending) item.appendChild(el('span', { class: 'nav-badge', text: String(STATE.pending) }));
+        nav.appendChild(item);
       });
     });
 
@@ -153,7 +234,10 @@
 
   function go(view) {
     STATE.view = view;
-    document.querySelectorAll('.nav-item').forEach(function (a) { a.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function (a) {
+      a.classList.toggle('active', a.getAttribute('data-route') === view);
+    });
+    var title = document.getElementById('app-title'); if (title) title.textContent = navLabel(view);
     var main = document.getElementById('view'); UI.clear(main);
     main.appendChild(el('div', { class: 'loading', text: t('loading') }));
     var fn = ({ dashboard: function () { return window.DASHBOARD ? DASHBOARD.view() : vDashboard(); },
