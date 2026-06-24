@@ -140,6 +140,11 @@ function dispatch_(action, body, authCtx) {
       requirePermission(authCtx, { module: 'admin', entity: 'users', action: 'admin' });
       requireFields(body, ['id']);
       return logged_(authCtx, 'reset_password', 'admin', 'users', adminResetPassword(actor, body.id));
+    case 'admin.user.setPassword':
+      requirePermission(authCtx, { module: 'admin', entity: 'users', action: 'admin' });
+      requireFields(body, ['id', 'password']);
+      return logged_(authCtx, 'set_password', 'admin', 'users',
+        setUserPassword(body.id, body.password, { actor: actor, mustReset: truthy(body.mustReset) }));
     case 'admin.assignRole':
       requirePermission(authCtx, { module: 'admin', entity: 'role_assignments', action: 'admin' });
       requireFields(body, ['user_id', 'role_code']);
