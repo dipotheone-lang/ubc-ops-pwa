@@ -1,0 +1,31 @@
+# Netlify config for the GitHub-connected deploy.
+# The app is a static PWA living in v2/frontend/ (no build step). v1 legacy
+# and backend are ignored — only the v2 frontend is published.
+
+[build]
+  publish = "v2/frontend"
+  command = ""
+
+# SPA/PWA fallback: any path that isn't a real file serves index.html.
+# Real files (css/js/assets) are served first, so this only catches deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Never cache the HTML shell or the service worker, so new deploys land at once.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Fingerprint-free static assets can cache long-term.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
