@@ -5,13 +5,17 @@
   "description": "United Brothers Co. internal operations PWA — Apps Script + Sheets + Drive headless backend, offline-first vanilla PWA frontend.",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:v1": "node scripts/build.mjs frontend dist-v1",
     "icons": "node scripts/make-icons.mjs",
     "check": "node scripts/check-syntax.mjs",
-    "push": "cd backend && clasp push",
-    "deploy:apps": "cd backend && clasp deploy --description \"ubc-ops\"",
+    "test": "node v2/test/harness.mjs",
+    "push": "cd v2/backend && clasp push",
+    "push:v1": "cd backend && clasp push",
+    "deploy:apps": "cd v2/backend && clasp deploy --description \"ubc-ops-v2\"",
     "login": "clasp login",
-    "serve": "node scripts/serve.mjs",
-    "deploy:firebase": "firebase deploy --only hosting"
+    "serve": "node v2/serve.mjs",
+    "serve:v1": "node scripts/serve.mjs",
+    "deploy:firebase": "npm run build && firebase deploy --only hosting"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2"
