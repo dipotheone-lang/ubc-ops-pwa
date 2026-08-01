@@ -108,11 +108,21 @@ function randomToken() { return (uuid() + uuid()).replace(/-/g, ''); }
 /** Random salt (hex). */
 function randomSalt() { return sha256Hex(uuid() + uuid() + nowMs()); }
 
-/** Server-side pepper from Script Properties (created on first setup). */
+/**
+ * Server-side pepper from Script Properties (created once on first use).
+ * Double-checked under the script lock so two concurrent first-time callers
+ * can't each generate a pepper and orphan the loser's password hashes.
+ */
 function pepper_() {
   var p = prop('PEPPER', '');
-  if (!p) { p = randomToken(); setProp('PEPPER', p); }
-  return p;
+  if (p) return p;
+  return withLock_(function () {
+    var again = prop('PEPPER', '');
+    if (again) return again;
+    var np = randomToken();
+    setProp('PEPPER', np);
+    return np;
+  });
 }
 
 /**

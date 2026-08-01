@@ -67,6 +67,10 @@ var UPLOAD_SLOT_MODULE = {
 };
 function uploadModuleForSlot_(slot) { return UPLOAD_SLOT_MODULE[slot] || 'construction'; }
 
+/** Void policy: statuses that can never be voided in place vs. those needing elevated authority. */
+var VOID_FORBIDDEN = ['Paid', 'Closed', 'Cancelled', 'Voided', 'Invoiced'];
+var VOID_ELEVATED = ['Approved', 'Issued', 'Posted', 'Awarded', 'Incorporated', 'Signed'];
+
 /** parent entity → its child line entity + foreign key (for doc.detail drill-down). */
 var DOC_LINES = {
   material_requisitions: { entity: 'mr_lines', fk: 'mr_id' },
@@ -96,16 +100,27 @@ function dispatch_(action, body, authCtx) {
     /* ---- generic reads (RBAC: view) ---- */
     case 'list': {
       requireFields(body, ['entity']);
-      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'view',
-        projectId: body.filter && body.filter.id });
+      var lpid = body.filter && (body.filter.project_id || (body.entity === 'projects' ? body.filter.id : null));
+      var lctx = { module: moduleOf_(body.entity), entity: body.entity, action: 'view', projectId: lpid };
       var rows = dbList(body.entity, body.filter || null);
-      return body.entity === 'users' ? rows.map(publicUser_) : rows;
+      if (!can(authCtx, lctx)) {
+        // No GLOBAL/PROJECT view — fall back to OWN-scoped visibility if granted.
+        var lown = ownViewFilter_(authCtx, body.entity);
+        if (!lown) requirePermission(authCtx, lctx); // throws standard 403
+        rows = rows.filter(lown.match);
+      }
+      return rows.map(function (r) { return scrubRow_(body.entity, r); });
     }
     case 'get': {
       requireFields(body, ['entity', 'id']);
-      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'view', projectId: body.id });
-      var row = dbGet(body.entity, body.id);
-      return body.entity === 'users' ? publicUser_(row) : row;
+      var grow = dbGet(body.entity, body.id);
+      var gpid = (grow && grow.project_id) || (body.entity === 'projects' ? body.id : null);
+      var gctx = { module: moduleOf_(body.entity), entity: body.entity, action: 'view', projectId: gpid };
+      if (!can(authCtx, gctx)) {
+        var gown = ownViewFilter_(authCtx, body.entity);
+        if (!gown || !grow || !gown.match(grow)) requirePermission(authCtx, gctx); // throws standard 403
+      }
+      return scrubRow_(body.entity, grow);
     }
 
     /* ---- masters ---- */
@@ -180,7 +195,11 @@ function dispatch_(action, body, authCtx) {
 
     /* ---- approvals ---- */
     case 'approvals.create':
-      // any authenticated user may initiate; the band decides who signs
+      // Any authenticated user may initiate, but only against a real record they
+      // can see — this blocks approval-spam against arbitrary/executive records.
+      requireFields(body, ['entity', 'record_id']);
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'view', projectId: body.project_id });
+      if (!dbGet(body.entity, body.record_id)) throw new AppError('NOT_FOUND', 'Target record not found.', 404);
       return createApprovalRequest({
         domain: body.domain, action: body.actionType, entity: body.entity, record_id: body.record_id,
         project_id: body.project_id, amount: body.amount, currency: body.currency,
@@ -219,7 +238,17 @@ function dispatch_(action, body, authCtx) {
     }
     case 'doc.void': {
       requireFields(body, ['entity', 'id']);
-      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity, action: 'edit', projectId: body.project_id });
+      var vcur = dbGet(body.entity, body.id);
+      if (!vcur) throw new AppError('NOT_FOUND', 'Document not found.', 404);
+      var vst = String(vcur.status || '');
+      // Financially-settled/closed docs can't be voided in place — they need a
+      // compensating entry (reversal/credit note), not a silent status flip.
+      if (VOID_FORBIDDEN.indexOf(vst) !== -1)
+        throw new AppError('LOCKED', 'Cannot void a ' + vst + ' document; it requires a compensating entry.', 409);
+      // Post-approval statuses require explicit void authority; early drafts only edit.
+      var needVoid = VOID_ELEVATED.indexOf(vst) !== -1;
+      requirePermission(authCtx, { module: moduleOf_(body.entity), entity: body.entity,
+        action: needVoid ? 'void' : 'edit', projectId: vcur.project_id || body.project_id });
       var voided = dbUpdate(body.entity, body.id, { status: 'Cancelled' }, actor);
       audit({ user_id: authCtx.user.id, user_email: actor, action: 'void', module: moduleOf_(body.entity), entity: body.entity, record_id: body.id, note: body.reason || '' });
       return voided;
@@ -430,6 +459,12 @@ function dispatch_(action, body, authCtx) {
     case 'admin.audit.recent':
       requirePermission(authCtx, { module: 'admin', entity: '*', action: 'view' });
       return recentAudit(body.limit, body.filter);
+    case 'admin.pruneSessions': {
+      requirePermission(authCtx, { module: 'admin', entity: '*', action: 'admin' });
+      var before = dbList('sessions').length;
+      pruneDeadSessions_();
+      return { pruned: before - dbList('sessions').length };
+    }
 
     default:
       throw new AppError('UNKNOWN_ACTION', 'Unknown action: ' + action);

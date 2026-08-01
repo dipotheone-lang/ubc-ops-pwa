@@ -157,6 +157,8 @@ function nextDocNumber(prefix) {
     var props = PropertiesService.getScriptProperties();
     var n = parseInt(props.getProperty(key) || '0', 10) + 1;
     props.setProperty(key, String(n));
-    return prefix + '-' + year + '-' + ('0000' + n).slice(-4);
+    // Zero-pad to 4 digits, but never truncate past 9999 (…-9999 → …-10000).
+    var seq = String(n); while (seq.length < 4) seq = '0' + seq;
+    return prefix + '-' + year + '-' + seq;
   });
 }

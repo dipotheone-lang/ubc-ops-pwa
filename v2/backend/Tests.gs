@@ -6,6 +6,7 @@
 function runAllTests() {
   initializeWorkbook(); // idempotent
   var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_sanitizeCell, t_uploadRbac,
+    t_ownScope, t_mivStockGuard, t_docNumberNoWrap,
     t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
@@ -98,6 +99,51 @@ function t_uploadRbac() {
   dbDelete('projects', PID);
 }
 
+function t_ownScope() {
+  // EMPLOYEE holds hr/leave_requests 'view' only at OWN scope.
+  var emp = mkUser_('EMPLOYEE');
+  var mineEmp = dbInsert('employees', { emp_code: 'E-OWN', full_name_en: 'Owner', user_id: emp.user.id, status: 'Active' }, 'test');
+  var otherEmp = dbInsert('employees', { emp_code: 'E-OTH', full_name_en: 'Other', status: 'Active' }, 'test');
+  var mine = dbInsert('leave_requests', { leave_number: 'LV-1', employee_id: mineEmp.id, type: 'Annual', from_date: '2026-01-01', to_date: '2026-01-02', days: 2, status: 'Draft' }, 'test');
+  var theirs = dbInsert('leave_requests', { leave_number: 'LV-2', employee_id: otherEmp.id, type: 'Annual', from_date: '2026-01-01', to_date: '2026-01-02', days: 2, status: 'Draft' }, 'test');
+  var f = ownViewFilter_(emp, 'leave_requests');
+  assert_(f, 'employee gets an OWN-scope filter for leave_requests');
+  assertEq_(f.ownerId, mineEmp.id, 'owner resolved to the linked employee id');
+  var rows = dbList('leave_requests').filter(f.match);
+  assert_(rows.some(function (r) { return r.id === mine.id; }), 'sees own leave request');
+  assert_(!rows.some(function (r) { return r.id === theirs.id; }), 'does not see another employee\'s leave');
+  dbDelete('leave_requests', mine.id); dbDelete('leave_requests', theirs.id);
+  dbDelete('employees', mineEmp.id); dbDelete('employees', otherEmp.id); rmUser_(emp);
+}
+
+function t_mivStockGuard() {
+  var client = dbInsert('clients', { client_code: 'MG', name_en: 'MG', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'MG-P', client_id: client.id, name_en: 'MG P', status: 'Active' }, 'test');
+  var sk = mkUser_('STOREKEEPER');
+  Warehouse.createGRN({ project_id: proj.id, received_date: '2026-02-02', lines: [
+    { item_code: 'X1', description: 'X', unit: 'ea', qty_ordered: 10, qty_received: 10, qty_accepted: 10 }] }, sk);
+  assertThrows_(function () { Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'A',
+    lines: [{ item_code: 'X1', description: 'X', qty: 20 }] }, sk); }, 'INSUFFICIENT_STOCK');
+  assertThrows_(function () { Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'A',
+    lines: [{ item_code: 'NOPE', description: '?', qty: 1 }] }, sk); }, 'NO_STOCK');
+  assertEq_(dbList('stock_items', { project_id: proj.id, item_code: 'X1' })[0].qty_on_hand, 10, 'stock intact after rejected issues');
+  assertEq_(dbList('material_issues', { project_id: proj.id }).length, 0, 'no MIV persisted on failure');
+  dbList('stock_items', { project_id: proj.id }).forEach(function (s) { dbDelete('stock_items', s.id); });
+  dbList('goods_received_notes', { project_id: proj.id }).forEach(function (g) {
+    dbList('grn_lines', { grn_id: g.id }).forEach(function (l) { dbDelete('grn_lines', l.id); });
+    dbDelete('goods_received_notes', g.id);
+  });
+  rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_docNumberNoWrap() {
+  var year = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy');
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('SEQ_ZZ_' + year, '9999');
+  assertEq_(nextDocNumber('ZZ'), 'ZZ-' + year + '-10000', 'doc number grows past 9999 without truncation');
+  props.setProperty('SEQ_ZZ_' + year, '0'); // reset scratch counter
+}
+
 function t_approvalChain() {
   var client = dbInsert('clients', { client_code: 'TST', name_en: 'Test Client', status: 'Active' }, 'test');
   var initiator = mkUser_('SITE_ENGINEER'), cm = mkUser_('CONSTRUCTION_MGR'), pm = mkUser_('PROCUREMENT_MGR');
@@ -154,10 +200,15 @@ function t_phase2GrnStock() {
   Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'Site A', lines: [
     { item_code: 'CEM-001', description: 'Cement', unit: 'bag', qty: 30 }] }, sk);
   assertEq_(dbList('stock_items', { project_id: proj.id, item_code: 'CEM-001' })[0].qty_on_hand, 70, 'stock decremented by MIV');
-  // cleanup
+  // cleanup — headers carry project_id; lines are reached via their parent id.
   dbList('stock_items', { project_id: proj.id }).forEach(function (s) { dbDelete('stock_items', s.id); });
-  ['goods_received_notes', 'grn_lines', 'material_issues', 'miv_lines'].forEach(function (e) {
-    dbList(e).forEach(function (r) { if (String(r.project_id) === String(proj.id) || true) { /* lines lack project_id */ } });
+  dbList('goods_received_notes', { project_id: proj.id }).forEach(function (g) {
+    dbList('grn_lines', { grn_id: g.id }).forEach(function (l) { dbDelete('grn_lines', l.id); });
+    dbDelete('goods_received_notes', g.id);
+  });
+  dbList('material_issues', { project_id: proj.id }).forEach(function (m) {
+    dbList('miv_lines', { miv_id: m.id }).forEach(function (l) { dbDelete('miv_lines', l.id); });
+    dbDelete('material_issues', m.id);
   });
   rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
 }

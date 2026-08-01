@@ -108,6 +108,50 @@ function canUploadTo(authCtx, module, projectId) {
   return false;
 }
 
+/**
+ * OWN-scope owner resolution. For entities where a role may be granted 'view'
+ * at OWN scope, this maps the entity to the column that carries the owner and
+ * how to resolve the caller's owner value:
+ *   'user'     → the column holds a user id  → caller's user.id
+ *   'employee' → the column holds an employee id → caller's linked employee row
+ */
+var OWN_FIELD = {
+  approval_requests: { field: 'initiator_user', kind: 'user' },
+  leave_requests: { field: 'employee_id', kind: 'employee' },
+  timesheets: { field: 'employee_id', kind: 'employee' },
+  appraisals: { field: 'employee_id', kind: 'employee' }
+};
+
+/** The employee id linked to a user account, or '' if none. */
+function resolveEmployeeId_(userId) {
+  var e = dbFindBy('employees', 'user_id', userId);
+  return e ? e.id : '';
+}
+
+/**
+ * If the caller has ONLY OWN-scoped view access to `entity` (no GLOBAL/PROJECT),
+ * return a filter { field, ownerId, match(row) } restricting results to their
+ * own rows; otherwise null. A user with no linked owner id matches nothing.
+ */
+function ownViewFilter_(authCtx, entity) {
+  var spec = OWN_FIELD[entity];
+  if (!spec) return null;
+  var codes = userRoleCodes(authCtx.roles || []);
+  var mod = (typeof moduleOf_ === 'function') ? moduleOf_(entity) : null;
+  var hasOwn = allPermissions_().some(function (p) {
+    return codes.indexOf(p.role_code) !== -1 &&
+      (p.module === '*' || p.module === mod) &&
+      (p.entity === '*' || p.entity === entity) &&
+      (p.action === 'view' || p.action === 'admin') && p.scope === 'OWN';
+  });
+  if (!hasOwn) return null;
+  var ownerId = spec.kind === 'user' ? String(authCtx.user.id) : resolveEmployeeId_(authCtx.user.id);
+  return {
+    field: spec.field, ownerId: ownerId,
+    match: function (row) { return !!ownerId && String(row[spec.field]) === String(ownerId); }
+  };
+}
+
 /** True if the user holds a given role (any scope). */
 function hasRole(authCtx, roleCode) {
   return userRoleCodes(authCtx.roles || []).indexOf(roleCode) !== -1;
