@@ -8,7 +8,8 @@ function runAllTests() {
   var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_sanitizeCell, t_uploadRbac,
     t_ownScope, t_mivStockGuard, t_docNumberNoWrap,
     t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock,
-    t_financePV, t_financeDocs, t_correspondence, t_phase3Tender, t_phase4HseRisk];
+    t_financePV, t_financeDocs, t_correspondence, t_bd, t_construction, t_hrLeave, t_assets,
+    t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -272,6 +273,79 @@ function t_correspondence() {
   assertEq_(issued.status, 'Issued', 'letter issued');
   assertEq_(String(issued.signed_by), String(author.user.id), 'issuer recorded as signer');
   dbDelete('correspondence', letter.id); rmUser_(author);
+}
+
+function t_bd() {
+  var client = dbInsert('clients', { client_code: 'BD', name_en: 'BD Client', status: 'Active' }, 'test');
+  var bd = mkUser_('EMPLOYEE');
+  var opp = BD.createOpportunity({ client_id: client.id, title: 'Metro Tender', estimated_value: '5000000', probability: '40' }, bd);
+  assertEq_(opp.status, 'Open', 'opportunity opens as Open');
+  assertEq_(opp.stage, 'Lead', 'opportunity default stage Lead');
+  assertEq_(opp.estimated_value, 5000000, 'opportunity value coerced numeric');
+  assertEq_(String(opp.owner_user), String(bd.user.id), 'owner defaults to creator');
+  assert_(/^OPP-/.test(opp.opp_number), 'opportunity has OPP- number');
+  assertEq_(BD.advanceOpportunity(opp.id, 'Qualified', bd).status, 'Open', 'non-terminal stage keeps status Open');
+  assertEq_(BD.advanceOpportunity(opp.id, 'Won', bd).status, 'Won', 'stage Won sets status Won');
+  var it = BD.logInteraction({ opportunity_id: opp.id, client_id: client.id, type: 'Meeting', interaction_date: '2026-03-02', summary: 'kickoff' }, bd);
+  assert_(it.id, 'interaction logged');
+  dbDelete('interactions', it.id); dbDelete('opportunities', opp.id); rmUser_(bd); dbDelete('clients', client.id);
+}
+
+function t_construction() {
+  var client = dbInsert('clients', { client_code: 'CON', name_en: 'CON Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'CON-PRJ', client_id: client.id, name_en: 'CON Proj', status: 'Active' }, 'test');
+  var se = mkUser_('EMPLOYEE');
+  var dsr = Construction.createDailyReport({ project_id: proj.id, report_date: '2026-03-01', weather: 'Clear',
+    manpower_count: '12', equipment_count: '3', progress_pct: '30', activities: 'Excavation' }, se);
+  assertEq_(dsr.manpower_count, 12, 'DSR manpower coerced numeric');
+  assertEq_(dsr.progress_pct, 30, 'DSR progress coerced numeric');
+  assert_(/^DSR-/.test(dsr.dsr_number), 'DSR has DSR- number');
+  var si = Construction.createSiteInstruction({ project_id: proj.id, subject: 'Rework wall', issued_to: 'Foreman' }, se);
+  assertEq_(si.status, 'Open', 'site instruction opens as Open');
+  assert_(/^SI-/.test(si.si_number), 'SI has SI- number');
+  dbDelete('daily_site_reports', dsr.id); dbDelete('site_instructions', si.id);
+  rmUser_(se); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_hrLeave() {
+  var maker = mkUser_('EMPLOYEE');
+  var emp = HR.createEmployee({ full_name_en: 'Worker' }, maker);
+  assertEq_(emp.contract_type, 'Permanent', 'employee default contract Permanent');
+  assertEq_(emp.status, 'Active', 'employee defaults to Active');
+  assert_(/^EMP-/.test(emp.emp_code), 'employee auto emp_code');
+  // Inclusive day count when days omitted: 01→05 March = 5 days.
+  var lv = HR.createLeave({ employee_id: emp.id, type: 'Annual', from_date: '2026-03-01', to_date: '2026-03-05' }, maker);
+  assertEq_(lv.days, 5, 'leave days computed inclusive');
+  assertEq_(lv.status, 'Draft', 'leave created as Draft');
+  var sub = submitDocument('leave_requests', lv.id, maker);
+  assertEq_(dbGet('leave_requests', lv.id).status, 'Submitted', 'leave submitted');
+  var hr = mkUser_('HR_MGR');
+  var done = decideApproval(sub.request.id, hr, 'approve', 'ok');
+  assertEq_(done.request.status, 'Approved', 'leave approved by HR manager');
+  assertEq_(dbGet('leave_requests', lv.id).status, 'Approved', 'leave status flipped via outcome');
+  var ts = HR.createTimesheet({ employee_id: emp.id, period: '2026-03', days_worked: '22', ot_hours: '5' }, maker);
+  assertEq_(ts.days_worked, 22, 'timesheet days coerced numeric');
+  assertEq_(ts.status, 'Draft', 'timesheet created as Draft');
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id);
+  dbDelete('timesheets', ts.id); dbDelete('leave_requests', lv.id); dbDelete('employees', emp.id);
+  rmUser_(maker); rmUser_(hr);
+}
+
+function t_assets() {
+  var maker = mkUser_('EMPLOYEE');
+  var asset = Assets.createAsset({ name: 'Excavator', category: 'Heavy Equipment', cost: '2500000', status: 'Under Maintenance' }, maker);
+  assertEq_(asset.status, 'Under Maintenance', 'asset status preserved on create');
+  assertEq_(asset.cost, 2500000, 'asset cost coerced numeric');
+  assert_(/^AST-/.test(asset.asset_code), 'asset auto asset_code');
+  // Corrective maintenance returns the asset to service (side-effect).
+  var mnt = Assets.logMaintenance({ asset_id: asset.id, type: 'Corrective', mnt_date: '2026-03-03', cost: '12000' }, maker);
+  assert_(/^MNT-/.test(mnt.mnt_number), 'maintenance MNT- number');
+  assertEq_(dbGet('assets', asset.id).status, 'In Service', 'corrective maintenance returns asset to service');
+  var cal = Assets.logCalibration({ asset_id: asset.id, calibrated_date: '2026-03-03', due_date: '2027-03-03', cert_no: 'C-1' }, maker);
+  assertEq_(cal.status, 'Valid', 'calibration record marked Valid');
+  assert_(/^CAL-/.test(cal.cal_number), 'calibration CAL- number');
+  dbDelete('calibration_records', cal.id); dbDelete('maintenance_records', mnt.id); dbDelete('assets', asset.id); rmUser_(maker);
 }
 
 function t_phase3Tender() {
