@@ -157,6 +157,8 @@ when shipping offline-critical changes.
 ## Verifying in this workspace
 ```bash
 npm run check                 # parses every .gs/.js/.mjs, reports errors
-npm test                      # runs the mocked-GAS harness (runAllTests + E2E)
+npm test                      # mocked-GAS harness (runAllTests + E2E) + offline-queue tests
 ```
-(Requires Node.js. The `.gs` files are V8 JavaScript and parse with the same engine.)
+Both run in **CI** (`.github/workflows/ci.yml`) on every pull request and on push to
+`main`, so a red suite blocks the merge. They exit non-zero on failure and need no
+dependency install — the `.gs` files are V8 JavaScript and parse/run under Node.
