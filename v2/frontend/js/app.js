@@ -169,6 +169,8 @@
       STATE.lookups = b.lookups || []; STATE.company = b.company; STATE.pending = b.pending_approvals || 0;
       document.getElementById('appbar').style.display = 'flex';
       render();
+      // Flush any offline-captured mutations now that we hold a fresh session.
+      if (window.SYNC) SYNC.drain().then(function (n) { if (n) toast((t('sync_done') || 'Synced') + ' (' + n + ')', 'success'); });
     });
   }
 

@@ -24,9 +24,18 @@
   // Only self-contained document/master creates are safe to capture offline.
   function isQueueable(action) { return /\.create$/.test(String(action || '')); }
 
+  // Auth failures are transient for a queued op (the session captured at capture
+  // time may have expired) — keep it queued so it replays after re-login rather
+  // than being dropped, which would silently lose an offline-captured record.
+  var AUTH_CODES = { NO_SESSION: 1, SESSION_EXPIRED: 1, AUTH_FAILED: 1, LOCKED: 1, ACCOUNT_DISABLED: 1 };
+
   function enqueue(action, payload) {
+    // Never persist the session token: it may be stale by replay time, and
+    // API.post attaches the current token on send. Strip it from the stored op.
+    var clean = {}; payload = payload || {};
+    for (var k in payload) if (payload.hasOwnProperty(k) && k !== 'token') clean[k] = payload[k];
     var q = load();
-    q.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), action: action, payload: payload || {}, at: new Date().toISOString() });
+    q.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), action: action, payload: clean, at: new Date().toISOString() });
     save(q); notify();
     return { queued: true, offline: true };
   }
@@ -39,13 +48,14 @@
     function step() {
       if (!q.length || !navigator.onLine) return;
       var op = q[0], body = { action: op.action };
-      for (var k in op.payload) if (op.payload.hasOwnProperty(k)) body[k] = op.payload[k];
+      for (var k in op.payload) if (op.payload.hasOwnProperty(k) && k !== 'token') body[k] = op.payload[k];
       return API.post(body).then(function () {
         q.shift(); save(q); done++; notify(); return step();
       }, function (err) {
-        // Deterministic server rejection (string app-error code) → drop it; retrying
-        // won't help. Network failure → stop and keep the remainder queued.
-        if (err && typeof err.code === 'string') { q.shift(); save(q); notify(); return step(); }
+        var code = err && err.code;
+        // Deterministic non-auth rejection (e.g. VALIDATION) → drop it; retrying
+        // won't help. Auth failure or network error → stop, keep it queued.
+        if (typeof code === 'string' && !AUTH_CODES[code]) { q.shift(); save(q); notify(); return step(); }
         throw err;
       });
     }

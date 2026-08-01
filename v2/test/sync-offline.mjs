@@ -78,6 +78,29 @@ async function run() {
     assert(calls === 1, 'network failure stops the drain (no tight-loop retry)');
   }
 
+  // 5) Session expiry does NOT drop the op — it stays queued and replays after re-auth.
+  {
+    let attempt = 0;
+    const { SYNC } = makeEnv(() => {
+      attempt++;
+      if (attempt === 1) { const e = new Error('expired'); e.code = 'SESSION_EXPIRED'; return Promise.reject(e); }
+      return Promise.resolve({ ok: true }); // second drain, post re-login, succeeds
+    }, true);
+    SYNC.enqueue('z.create', { record: { x: 1 } });
+    await SYNC.drain();
+    assert(SYNC.pending() === 1, 'expired-session op is NOT dropped (kept for retry)');
+    await SYNC.drain(); // simulate drain after re-login
+    assert(SYNC.pending() === 0, 'op replays successfully after re-auth');
+  }
+
+  // 6) The stored op never carries a session token (re-attached fresh on replay).
+  {
+    let sentToken = 'unset';
+    const { SYNC, store } = makeEnv((body) => { sentToken = body.token; return Promise.resolve({ ok: true }); }, false);
+    SYNC.enqueue('t.create', { record: {}, token: 'stale-token-123' });
+    assert(JSON.parse(store.ubc_outbox)[0].payload.token === undefined, 'queued op does not persist the session token');
+  }
+
   console.log(failures ? ('\nFAILED (' + failures + ')') : '\nDONE — all offline-queue tests passed.');
   if (failures) process.exit(1);
 }
