@@ -7,7 +7,8 @@ function runAllTests() {
   initializeWorkbook(); // idempotent
   var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_sanitizeCell, t_uploadRbac,
     t_ownScope, t_mivStockGuard, t_docNumberNoWrap,
-    t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
+    t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock,
+    t_financePV, t_financeDocs, t_correspondence, t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -211,6 +212,66 @@ function t_phase2GrnStock() {
     dbDelete('material_issues', m.id);
   });
   rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_financePV() {
+  var client = dbInsert('clients', { client_code: 'FPV', name_en: 'FPV Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'FPV-PRJ', client_id: client.id, name_en: 'FPV Proj', status: 'Active', currency: 'EGP' }, 'test');
+  var maker = mkUser_('EMPLOYEE'); // neutral initiator (SoD: can't be a signer)
+  // Bank Transfer ≤250K routes to payment_transfer band {all: FINANCE_CONTROLLER + CFO}.
+  var pv = Finance.createPV({ project_id: proj.id, amount: '100000', payment_method: 'Bank Transfer', payee: 'ACME' }, maker);
+  assertEq_(pv.status, 'Draft', 'PV created as Draft');
+  assertEq_(pv.amount, 100000, 'PV amount coerced to number');
+  assertEq_(pv.currency, 'EGP', 'PV currency defaults to EGP');
+  assert_(/^PV-/.test(pv.pv_number), 'PV has a PV- document number');
+  var sub = submitDocument('payment_vouchers', pv.id, maker);
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Submitted', 'PV submitted');
+  assertEq_(sub.request.domain, 'payment_transfer', 'transfer routing (not cheque)');
+  assertEq_(sub.steps.length, 1, 'transfer ≤250K is a single all-mode step');
+  var fc = mkUser_('FINANCE_CONTROLLER'), cfo = mkUser_('CFO');
+  decideApproval(sub.request.id, fc, 'approve', 'maker ok');
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Submitted', 'still submitted after 1 of 2 signers');
+  var done = decideApproval(sub.request.id, cfo, 'approve', 'cfo ok');
+  assertEq_(done.request.status, 'Approved', 'approval completes with both signers');
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Approved', 'PV status flipped via approval outcome');
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id); dbDelete('payment_vouchers', pv.id);
+  rmUser_(maker); rmUser_(fc); rmUser_(cfo); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_financeDocs() {
+  var client = dbInsert('clients', { client_code: 'FDX', name_en: 'FDX Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'FDX-PRJ', client_id: client.id, name_en: 'FDX Proj', status: 'Active' }, 'test');
+  var acc = mkUser_('EMPLOYEE');
+  // Receipt voucher: terminal 'Recorded', numeric coercion, default method.
+  var rv = Finance.createRV({ project_id: proj.id, client_id: client.id, payer: 'Client', amount: '50000', wht_amount: '2500', retention_amount: '5000' }, acc);
+  assertEq_(rv.status, 'Recorded', 'RV recorded on create');
+  assertEq_(rv.amount, 50000, 'RV amount numeric');
+  assertEq_(rv.wht_amount, 2500, 'RV WHT numeric');
+  assertEq_(rv.method, 'Bank Transfer', 'RV method defaults to Bank Transfer');
+  assert_(/^RV-/.test(rv.rv_number), 'RV has an RV- number');
+  // Expense: Draft, numeric amount.
+  var ex = Finance.createExpense({ project_id: proj.id, expense_date: '2026-03-01', amount: '1200.50', category: 'Materials', vendor: 'Depot' }, acc);
+  assertEq_(ex.status, 'Draft', 'expense created as Draft');
+  assertEq_(ex.amount, 1200.5, 'expense amount numeric');
+  assert_(/^EXP-/.test(ex.exp_number), 'expense has an EXP- number');
+  dbDelete('receipt_vouchers', rv.id); dbDelete('expenses', ex.id);
+  rmUser_(acc); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_correspondence() {
+  var author = mkUser_('EMPLOYEE');
+  var letter = Correspondence.create({ type: 'General', recipient: 'Consultant',
+    subject_ar: 'إشعار', body_ar: '=HYPERLINK("http://evil","x")' }, author);
+  assertEq_(letter.status, 'Draft', 'letter created as Draft');
+  assertEq_(letter.type, 'General', 'letter type preserved');
+  assert_(/^COR-/.test(letter.letter_number), 'letter has a COR- number');
+  // Free-text letter body must be neutralized against formula injection on write.
+  assertEq_(String(dbGet('correspondence', letter.id).body_ar).charAt(0), "'", 'letter body formula is escaped');
+  var issued = Correspondence.issue(letter.id, author);
+  assertEq_(issued.status, 'Issued', 'letter issued');
+  assertEq_(String(issued.signed_by), String(author.user.id), 'issuer recorded as signer');
+  dbDelete('correspondence', letter.id); rmUser_(author);
 }
 
 function t_phase3Tender() {
