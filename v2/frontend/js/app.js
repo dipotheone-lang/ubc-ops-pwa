@@ -15,8 +15,20 @@
     I18N.applyDir();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function () {});
     document.getElementById('lang-btn').addEventListener('click', function () { I18N.toggle(); render(); });
+    if (window.SYNC) SYNC.init(updateSyncBadge);
     if (API.getToken() && API.getBase()) { afterLogin().catch(showLogin); }
     else showLogin();
+  }
+
+  // Small topbar indicator for mutations captured offline and awaiting sync.
+  function updateSyncBadge(n) {
+    var right = document.querySelector('.topbar-right'); if (!right) return;
+    var b = document.getElementById('sync-badge');
+    if (!n) { if (b && b.parentNode) b.parentNode.removeChild(b); return; }
+    if (!b) { b = el('span', { id: 'sync-badge', class: 'sync-badge' }); right.insertBefore(b, right.firstChild); }
+    b.textContent = '⇅ ' + n;
+    b.setAttribute('title', n + ' ' + (t('pending_sync') || 'pending sync'));
+    b.setAttribute('aria-label', n + ' ' + (t('pending_sync') || 'pending sync'));
   }
 
   /* ------------------------- permission helper ------------------------- */
@@ -192,7 +204,7 @@
       el('div', { class: 'sidebar-user-name', text: (ar ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email }),
       el('div', { class: 'sidebar-user-role', text: roleName || STATE.user.email })
     ]));
-    foot.appendChild(el('button', { class: 'logout', title: t('logout'), onclick: logout }, [icon('ic-logout', 16)]));
+    foot.appendChild(el('button', { class: 'logout', title: t('logout'), 'aria-label': t('logout'), onclick: logout }, [icon('ic-logout', 16)]));
 
     // nav — grouped into ERP module sections
     var nav = document.getElementById('nav'); UI.clear(nav);
@@ -628,6 +640,12 @@
         });
         if (le) rec.lines = le.getRows();
         var chain = Promise.resolve();
+        // Offline: attachments need a live connection, so skip them but still
+        // capture the record (it queues and replays on reconnect).
+        if (typeof navigator !== 'undefined' && !navigator.onLine && fileJobs.length) {
+          toast(t('offline_no_files') || 'Offline — record saved without attachment', 'info');
+          fileJobs = [];
+        }
         fileJobs.forEach(function (j) {
           chain = chain.then(function () {
             if (!rec.project_id) throw new Error('Select a project before attaching a file.');
@@ -636,7 +654,11 @@
           });
         });
         return chain.then(function () { return API.act(doc.action, { record: rec }); })
-          .then(function () { toast(t('new_doc') + ' ✓', 'success'); go(moduleKey); });
+          .then(function (res) {
+            var queued = res && res.queued;
+            toast(queued ? (t('offline_saved') || 'Saved offline') : (t('new_doc') + ' ✓'), queued ? 'info' : 'success');
+            go(moduleKey);
+          });
       });
       wrap.appendChild(card(t('new_doc') + ' — ' + t(doc.key), el('div', {}, [f.form, le ? el('h4', { text: t('line_items') }) : null, le ? le.node : null])));
     }

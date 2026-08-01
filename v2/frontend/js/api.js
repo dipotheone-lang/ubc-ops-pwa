@@ -21,6 +21,11 @@
   function post(payload) {
     payload = payload || {};
     if (!payload.token && token()) payload.token = token();
+    // Offline capture: queue self-contained creates instead of failing (SYNC
+    // only queues when truly offline, so replay can't duplicate a server write).
+    if (typeof navigator !== 'undefined' && !navigator.onLine && window.SYNC && SYNC.isQueueable(payload.action)) {
+      return Promise.resolve(SYNC.enqueue(payload.action, payload));
+    }
     return fetch(base(), {
       method: 'POST', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },

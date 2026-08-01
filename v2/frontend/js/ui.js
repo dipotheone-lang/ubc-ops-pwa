@@ -26,7 +26,11 @@
   }
   var _tt;
   function toast(msg, kind) {
-    var t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show ' + (kind || 'info');
+    var t = document.getElementById('toast');
+    // Announce to assistive tech; errors are assertive, everything else polite.
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
+    t.textContent = msg; t.className = 'toast show ' + (kind || 'info');
     if (_tt) clearTimeout(_tt); _tt = setTimeout(function () { t.className = 'toast'; }, 4000);
   }
   function form(fields, submitLabel, onSubmit) {
@@ -46,8 +50,10 @@
       } else if (fl.type === 'textarea') { input = el('textarea', { id: id, rows: 3 }); if (fl.value) input.value = fl.value; }
       else if (fl.type === 'file') { input = el('input', { id: id, type: 'file', accept: fl.accept || 'image/*,application/pdf' }); }
       else { input = el('input', { id: id, type: fl.type || 'text', value: fl.value || '', placeholder: fl.placeholder || '', step: fl.type === 'number' ? 'any' : null }); }
+      input.setAttribute('aria-describedby', id + '_err');
+      if (fl.required) input.setAttribute('aria-required', 'true');
       inputs[fl.name] = { node: input, spec: fl };
-      w.appendChild(input); w.appendChild(el('div', { class: 'field-error', id: id + '_err' }));
+      w.appendChild(input); w.appendChild(el('div', { class: 'field-error', id: id + '_err', role: 'alert' }));
       f.appendChild(w);
     });
     var btn = el('button', { type: 'submit', class: 'btn primary', text: submitLabel });
@@ -59,7 +65,12 @@
         var rec = inputs[name];
         v[name] = rec.spec.type === 'file' ? (rec.node.files && rec.node.files[0]) || null : rec.node.value;
         var errN = document.getElementById('f_' + name + '_err'); errN.textContent = '';
-        if (rec.spec.required && !v[name]) { errN.textContent = '!'; okv = false; }
+        rec.node.removeAttribute('aria-invalid');
+        if (rec.spec.required && !v[name]) {
+          errN.textContent = I18N.t('required') || 'Required';
+          rec.node.setAttribute('aria-invalid', 'true');
+          okv = false;
+        }
       });
       if (!okv) return;
       btn.disabled = true;
@@ -86,15 +97,36 @@
     t.appendChild(tb); return el('div', { class: 'table-wrap' }, [t]);
   }
 
-  /** Shared modal. Returns { close }. */
+  var FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  function visibleFocusables(container) {
+    return Array.prototype.slice.call(container.querySelectorAll(FOCUSABLE)).filter(function (n) { return n.offsetParent !== null; });
+  }
+
+  /** Shared accessible modal (dialog role, focus trap + restore, Esc to close). Returns { close, body }. */
   function modal(title, body, opts) {
-    var box = el('div', { class: 'modal-box' + (opts && opts.wide ? ' wide' : '') }, [
-      el('div', { class: 'modal-head' }, [el('h3', { text: title }), el('button', { class: 'icon-btn', text: '✕', onclick: function () { close(); } })]),
+    var prevFocus = document.activeElement; // restore on close
+    var closeBtn = el('button', { class: 'icon-btn', 'aria-label': I18N.t('close') || 'Close', text: '✕', onclick: function () { close(); } });
+    var box = el('div', { class: 'modal-box' + (opts && opts.wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, [
+      el('div', { class: 'modal-head' }, [el('h3', { text: title }), closeBtn]),
       el('div', { class: 'modal-body' }, [body])
     ]);
     var overlay = el('div', { class: 'modal-overlay', onclick: function (e) { if (e.target === overlay) close(); } }, [box]);
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key !== 'Tab') return;
+      var f = visibleFocusables(box); if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener('keydown', onKey, true);
     document.body.appendChild(overlay);
-    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    var f0 = visibleFocusables(box); (f0[0] || closeBtn).focus(); // move focus into the dialog
+    function close() {
+      document.removeEventListener('keydown', onKey, true);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (prevFocus && prevFocus.focus) prevFocus.focus(); // restore focus to opener
+    }
     return { close: close, body: box.querySelector('.modal-body') };
   }
 
@@ -106,8 +138,8 @@
     opts = opts || {}; var pageSize = opts.pageSize || 25;
     var state = { q: '', sort: null, dir: 1, page: 0 };
     var wrap = el('div', {});
-    var search = el('input', { class: 'tbl-search', type: 'search', placeholder: '🔎 ' + (I18N.t('search') || 'Search') });
-    var exportBtn = el('button', { class: 'btn small', text: '⤓ CSV', onclick: function () { exportCsv(); } });
+    var search = el('input', { class: 'tbl-search', type: 'search', 'aria-label': I18N.t('search') || 'Search', placeholder: '🔎 ' + (I18N.t('search') || 'Search') });
+    var exportBtn = el('button', { class: 'btn small', text: '⤓ CSV', 'aria-label': (I18N.t('export') || 'Export') + ' CSV', onclick: function () { exportCsv(); } });
     var holder = el('div', {});
     wrap.appendChild(el('div', { class: 'tbl-toolbar' }, [search, exportBtn]));
     wrap.appendChild(holder);
@@ -165,9 +197,9 @@
       holder.appendChild(el('div', { class: 'table-wrap' }, [t]));
       if (pages > 1) {
         holder.appendChild(el('div', { class: 'pager' }, [
-          el('button', { class: 'btn small', text: '‹', onclick: function () { if (state.page > 0) { state.page--; draw(); } } }),
+          el('button', { class: 'btn small', text: '‹', 'aria-label': I18N.t('prev') || 'Previous', onclick: function () { if (state.page > 0) { state.page--; draw(); } } }),
           el('span', { class: 'muted', text: (state.page + 1) + ' / ' + pages + '  (' + total + ')' }),
-          el('button', { class: 'btn small', text: '›', onclick: function () { if (state.page < pages - 1) { state.page++; draw(); } } })
+          el('button', { class: 'btn small', text: '›', 'aria-label': I18N.t('next') || 'Next', onclick: function () { if (state.page < pages - 1) { state.page++; draw(); } } })
         ]));
       }
     }
