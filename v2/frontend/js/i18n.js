@@ -43,7 +43,21 @@
       description: 'Description', signer_chain: 'Signer chain', bad_json: 'Invalid JSON', manage_roles: 'Manage roles',
       reset_password: 'Reset password', deactivate: 'Deactivate', activate: 'Activate', edit: 'Edit', phone: 'Phone',
       title: 'Title', language: 'Language', active_y: 'Active', inactive_y: 'Inactive', revoke: 'Revoke',
-      lookups: 'Lookups', audit: 'Audit log', temp_pw_hint: 'Share this with the user — they must change it on first login.'
+      lookups: 'Lookups', audit: 'Audit log', temp_pw_hint: 'Share this with the user — they must change it on first login.',
+      close: 'Close', required: 'Required',
+      offline_saved: 'Saved offline — will sync when back online', pending_sync: 'pending sync', sync_done: 'Synced',
+      // document field labels (consulted by prettyLabel)
+      received_date: 'Received date', condition: 'Condition', notes: 'Notes', photo_url: 'Photo', receipt_url: 'Receipt',
+      expense_date: 'Expense date', payment_method: 'Payment method', vendor: 'Vendor', report_date: 'Report date',
+      weather: 'Weather', manpower_count: 'Manpower', equipment_count: 'Equipment', progress_pct: 'Progress %',
+      activities: 'Activities', delays: 'Delays', required_date: 'Required date', cost_code: 'Cost code',
+      justification: 'Justification', delivery_date: 'Delivery date', order_date: 'Order date', gross_amount: 'Gross amount',
+      advance_recovery: 'Advance recovery', retention: 'Retention', net_amount: 'Net amount', period: 'Period',
+      time_impact_days: 'Time impact (days)', location: 'Location', root_cause: 'Root cause', disposition: 'Disposition',
+      purpose: 'Purpose', issued_to: 'Issued to', issue_date: 'Issue date', item_code: 'Item code', unit: 'Unit',
+      qty: 'Qty', qty_ordered: 'Qty ordered', qty_received: 'Qty received', qty_accepted: 'Qty accepted',
+      unit_price: 'Unit price', est_unit_price: 'Est. unit price', payee: 'Payee', payer: 'Payer', reference: 'Reference', method: 'Method',
+      offline_no_files: 'Offline — record saved without attachment', export: 'Export', prev: 'Previous', next: 'Next'
     },
     ar: {
       app: 'عمليات الأخوة المتحدين', login: 'تسجيل الدخول', email: 'البريد الإلكتروني', password: 'كلمة المرور',
@@ -83,7 +97,21 @@
       description: 'الوصف', signer_chain: 'سلسلة الاعتماد', bad_json: 'صيغة JSON غير صحيحة', manage_roles: 'إدارة الأدوار',
       reset_password: 'إعادة تعيين كلمة المرور', deactivate: 'تعطيل', activate: 'تفعيل', edit: 'تعديل', phone: 'الهاتف',
       title: 'المسمى الوظيفي', language: 'اللغة', active_y: 'نشط', inactive_y: 'غير نشط', revoke: 'إلغاء',
-      lookups: 'القوائم', audit: 'سجل التدقيق', temp_pw_hint: 'شاركها مع المستخدم — يجب تغييرها عند أول دخول.'
+      lookups: 'القوائم', audit: 'سجل التدقيق', temp_pw_hint: 'شاركها مع المستخدم — يجب تغييرها عند أول دخول.',
+      close: 'إغلاق', required: 'مطلوب',
+      offline_saved: 'تم الحفظ دون اتصال — ستتم المزامنة عند عودة الاتصال', pending_sync: 'بانتظار المزامنة', sync_done: 'تمت المزامنة',
+      // document field labels (consulted by prettyLabel)
+      received_date: 'تاريخ الاستلام', condition: 'الحالة', notes: 'ملاحظات', photo_url: 'صورة', receipt_url: 'إيصال',
+      expense_date: 'تاريخ المصروف', payment_method: 'طريقة الدفع', vendor: 'المورّد', report_date: 'تاريخ التقرير',
+      weather: 'الطقس', manpower_count: 'العمالة', equipment_count: 'المعدات', progress_pct: 'نسبة الإنجاز',
+      activities: 'الأنشطة', delays: 'التأخيرات', required_date: 'التاريخ المطلوب', cost_code: 'رمز التكلفة',
+      justification: 'المبرر', delivery_date: 'تاريخ التسليم', order_date: 'تاريخ الأمر', gross_amount: 'المبلغ الإجمالي',
+      advance_recovery: 'استرداد الدفعة المقدمة', retention: 'المحتجز', net_amount: 'المبلغ الصافي', period: 'الفترة',
+      time_impact_days: 'الأثر الزمني (أيام)', location: 'الموقع', root_cause: 'السبب الجذري', disposition: 'القرار',
+      purpose: 'الغرض', issued_to: 'صُرف إلى', issue_date: 'تاريخ الصرف', item_code: 'رمز الصنف', unit: 'الوحدة',
+      qty: 'الكمية', qty_ordered: 'الكمية المطلوبة', qty_received: 'الكمية المستلمة', qty_accepted: 'الكمية المقبولة',
+      unit_price: 'سعر الوحدة', est_unit_price: 'السعر التقديري للوحدة', payee: 'المستفيد', payer: 'الدافع', reference: 'المرجع', method: 'الطريقة',
+      offline_no_files: 'دون اتصال — تم حفظ السجل بدون مرفق', export: 'تصدير', prev: 'السابق', next: 'التالي'
     }
   };
 

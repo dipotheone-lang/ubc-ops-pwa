@@ -29,8 +29,25 @@ function headers_(sheet) {
 function rowToObj_(h, row) { var o = {}; for (var i = 0; i < h.length; i++) o[h[i]] = row[i]; return o; }
 function objToRow_(h, obj) {
   var r = [];
-  for (var i = 0; i < h.length; i++) { var v = obj[h[i]]; r.push(v === undefined || v === null ? '' : v); }
+  for (var i = 0; i < h.length; i++) { var v = obj[h[i]]; r.push(v === undefined || v === null ? '' : sanitizeCell_(v)); }
   return r;
+}
+
+/**
+ * Neutralize spreadsheet formula injection. A text cell beginning with a formula
+ * trigger (= + - @, or a leading tab/CR) is evaluated as a live formula when a
+ * human opens the Sheet — e.g. =IMPORTXML(...) or =HYPERLINK(...) exfiltrating
+ * data. Prefixing an apostrophe forces Sheets to treat the cell as text; the
+ * apostrophe is a display/format marker and is NOT returned by getValue(), so
+ * stored values round-trip unchanged. Numeric-looking strings (e.g. "-12.5",
+ * "+3%") are left alone so financial/quantity fields aren't corrupted.
+ */
+function sanitizeCell_(v) {
+  if (typeof v !== 'string' || !v) return v;
+  var c = v.charAt(0);
+  if (c === '=' || c === '@' || c === '\t' || c === '\r') return "'" + v;
+  if ((c === '+' || c === '-') && !/^[+\-]?\d[\d,.\s%]*$/.test(v)) return "'" + v;
+  return v;
 }
 
 var _lockHeld = false;  // re-entrancy guard: nested withLock_ reuse the outer lock
@@ -140,6 +157,8 @@ function nextDocNumber(prefix) {
     var props = PropertiesService.getScriptProperties();
     var n = parseInt(props.getProperty(key) || '0', 10) + 1;
     props.setProperty(key, String(n));
-    return prefix + '-' + year + '-' + ('0000' + n).slice(-4);
+    // Zero-pad to 4 digits, but never truncate past 9999 (…-9999 → …-10000).
+    var seq = String(n); while (seq.length < 4) seq = '0' + seq;
+    return prefix + '-' + year + '-' + seq;
   });
 }

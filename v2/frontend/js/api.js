@@ -6,8 +6,10 @@
 (function () {
   'use strict';
 
-  // Default to the deployed v2 Web App; overridable via Settings (localStorage).
-  var DEFAULT_BASE = 'https://script.google.com/macros/s/AKfycbwGnEeLqPeSXx4KX4MSYPwF_ZmDXEYZdOjzr5jEuLlCopl3Aw7yfoy7q8h3qlBYqhbE/exec';
+  // The Web App /exec URL is configured at runtime (login screen or Settings)
+  // and stored in localStorage — never hardcoded, so the deployment endpoint is
+  // not baked into source or the shipped bundle.
+  var DEFAULT_BASE = '';
   function base() {
     var b = localStorage.getItem('ubc_api_base') || DEFAULT_BASE;
     if (!b) throw new Error('API URL not configured.');
@@ -19,6 +21,11 @@
   function post(payload) {
     payload = payload || {};
     if (!payload.token && token()) payload.token = token();
+    // Offline capture: queue self-contained creates instead of failing (SYNC
+    // only queues when truly offline, so replay can't duplicate a server write).
+    if (typeof navigator !== 'undefined' && !navigator.onLine && window.SYNC && SYNC.isQueueable(payload.action)) {
+      return Promise.resolve(SYNC.enqueue(payload.action, payload));
+    }
     return fetch(base(), {
       method: 'POST', redirect: 'follow',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },

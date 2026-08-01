@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+dist-v1/
 
 # clasp — keep the example, never commit real credentials/scriptId
 backend/.clasp.json

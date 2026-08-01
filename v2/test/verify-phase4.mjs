@@ -1,5 +1,8 @@
 /** verify-phase4.mjs — live check: reseed + HSE risk-routing. node verify-phase4.mjs <url> */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function p(o, tries) {
   for (let i = 0; i < (tries || 5); i++) {
     try {
@@ -11,7 +14,7 @@ async function p(o, tries) {
 }
 const L = (n, o) => console.log(n.padEnd(22), JSON.stringify(o));
 (async () => {
-  const l = await p({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  const l = await p({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   L('login', { ok: l.ok }); const t = l.data && l.data.token; if (!t) return;
   const rs = await p({ action: 'admin.reseed', token: t });
   L('reseed', { ok: rs.ok, perms: rs.data && rs.data.seeded.permissions, doa: rs.data && rs.data.seeded.doa_bands, tabs: rs.data && rs.data.tabs.length });

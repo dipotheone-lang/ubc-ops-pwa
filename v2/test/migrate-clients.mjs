@@ -3,6 +3,9 @@
  *   node v2/test/migrate-clients.mjs <execUrl>
  */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function p(o, tries) {
   for (let i = 0; i < (tries || 5); i++) {
     try { const r = await fetch(exec, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) }); return JSON.parse(await r.text()); }
@@ -43,7 +46,7 @@ const CLIENTS = [
 ].map(c => ({ client_code: c[0], name_en: c[1], name_ar: c[2], sector: c[3], status: 'Active' }));
 
 (async () => {
-  const l = await p({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  const l = await p({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   if (!l.data) { console.log('login failed', JSON.stringify(l)); return; }
   console.log('login ok, importing', CLIENTS.length, 'clients…');
   const r = await p({ action: 'admin.import', token: l.data.token, entity: 'clients', rows: CLIENTS, keyField: 'client_code' });

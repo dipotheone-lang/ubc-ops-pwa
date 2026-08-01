@@ -117,17 +117,29 @@ var Warehouse = {
   },
   createMIV: function (body, authCtx) {
     requireFields(body, ['project_id', 'issue_date', 'issued_to']);
-    var miv = dbInsert('material_issues', {
-      miv_number: nextDocNumber('MIV'), project_id: body.project_id, issue_date: body.issue_date,
-      issued_to: body.issued_to, purpose: body.purpose, status: 'Issued'
-    }, authCtx.user.email);
-    var lines = insertLines_('miv_lines', 'miv_id', miv.id, body.lines, authCtx.user.email, function (r) { r.qty = coerceNumber(r.qty); });
-    lines.forEach(function (l) {
-      if (!l.item_code) return;
-      var ex = dbList('stock_items', { project_id: body.project_id, item_code: l.item_code });
-      if (ex.length) dbUpdate('stock_items', ex[0].id, { qty_on_hand: Number(ex[0].qty_on_hand || 0) - Number(l.qty || 0) }, authCtx.user.email);
+    // Whole issue is atomic: validate stock for every line, then post, so we
+    // never leave a partial MIV and stock can never go negative under races.
+    return withLock_(function () {
+      (body.lines || []).forEach(function (l) {
+        if (!l.item_code) return;
+        var s = dbList('stock_items', { project_id: body.project_id, item_code: l.item_code });
+        if (!s.length) throw new AppError('NO_STOCK', 'No stock record for item ' + l.item_code + '.', 409);
+        if (Number(s[0].qty_on_hand || 0) < Number(l.qty || 0))
+          throw new AppError('INSUFFICIENT_STOCK', 'Insufficient stock for ' + l.item_code +
+            ' (have ' + Number(s[0].qty_on_hand || 0) + ', need ' + Number(l.qty || 0) + ').', 409);
+      });
+      var miv = dbInsert('material_issues', {
+        miv_number: nextDocNumber('MIV'), project_id: body.project_id, issue_date: body.issue_date,
+        issued_to: body.issued_to, purpose: body.purpose, status: 'Issued'
+      }, authCtx.user.email);
+      var lines = insertLines_('miv_lines', 'miv_id', miv.id, body.lines, authCtx.user.email, function (r) { r.qty = coerceNumber(r.qty); });
+      lines.forEach(function (l) {
+        if (!l.item_code) return;
+        var ex = dbList('stock_items', { project_id: body.project_id, item_code: l.item_code });
+        if (ex.length) dbUpdate('stock_items', ex[0].id, { qty_on_hand: Number(ex[0].qty_on_hand || 0) - Number(l.qty || 0) }, authCtx.user.email);
+      });
+      return { header: miv, lines: lines };
     });
-    return { header: miv, lines: lines };
   },
   upsertStock: function (body, authCtx) {
     requireFields(body, ['project_id', 'item_code', 'description']);

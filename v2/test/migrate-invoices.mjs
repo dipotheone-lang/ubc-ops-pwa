@@ -4,6 +4,9 @@
  */
 import { readFileSync } from 'node:fs';
 const exec = process.argv[2], jsonPath = process.argv[3];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 const src = JSON.parse(readFileSync(jsonPath, 'utf8'));
 
 function xdate(s) { const n = Number(s); if (!s || isNaN(n) || n < 1) return String(s || ''); return new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 10); }
@@ -24,7 +27,7 @@ async function p(o, n) {
   return { ok: false, err: 'network' };
 }
 (async () => {
-  const l = await p({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  const l = await p({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   if (!l.data) { console.log('login failed', JSON.stringify(l)); return; }
   const tok = l.data.token;
   console.log('mapped', recs.length, 'invoice rows; importing in batches of 150…');

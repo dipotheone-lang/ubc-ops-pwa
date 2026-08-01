@@ -104,10 +104,8 @@ var SCHEMA = {
       'status', 'approvals_json', 'decision_at', 'comment'],
     enums: { mode: ['all', 'any', 'count'], status: ['Pending', 'Active', 'Approved', 'Rejected', 'Skipped'] }
   },
-  doc_sequences: {
-    sheet: 'DocSequences', pk: 'id',
-    columns: ['id', 'seq_key', 'year', 'current', 'updated_at']
-  },
+  // Document numbering is served atomically by nextDocNumber() via Script
+  // Properties under the script lock (see Database.gs), so no sequence table.
   lookups: {
     sheet: 'Lookups', pk: 'id',
     columns: ['id', 'category', 'code', 'label_en', 'label_ar', 'sort', 'active'].concat(AUDIT_COLUMNS),
@@ -454,11 +452,14 @@ var SEED_PERMISSIONS = [
   ['ADMIN', '*', '*', 'view', 'GLOBAL'],
   ['ADMIN', '*', '*', 'create', 'GLOBAL'],
   ['ADMIN', '*', '*', 'edit', 'GLOBAL'],
+  ['ADMIN', '*', '*', 'void', 'GLOBAL'],
 
-  // Executives: global visibility + approval authority
-  ['CEO', '*', '*', 'view', 'GLOBAL'], ['CEO', '*', '*', 'approve', 'GLOBAL'], ['CEO', '*', '*', 'sign', 'GLOBAL'],
-  ['COO', '*', '*', 'view', 'GLOBAL'], ['COO', '*', '*', 'approve', 'GLOBAL'],
-  ['CFO', '*', '*', 'view', 'GLOBAL'], ['CFO', '*', '*', 'approve', 'GLOBAL'], ['CFO', 'finance', '*', 'create', 'GLOBAL'],
+  // Executives: global visibility + approval authority (incl. voiding post-approval docs)
+  ['CEO', '*', '*', 'view', 'GLOBAL'], ['CEO', '*', '*', 'approve', 'GLOBAL'], ['CEO', '*', '*', 'sign', 'GLOBAL'], ['CEO', '*', '*', 'void', 'GLOBAL'],
+  ['COO', '*', '*', 'view', 'GLOBAL'], ['COO', '*', '*', 'approve', 'GLOBAL'], ['COO', '*', '*', 'void', 'GLOBAL'],
+  ['CFO', '*', '*', 'view', 'GLOBAL'], ['CFO', '*', '*', 'approve', 'GLOBAL'], ['CFO', 'finance', '*', 'create', 'GLOBAL'], ['CFO', 'finance', '*', 'void', 'GLOBAL'],
+  ['PROCUREMENT_MGR', 'procurement', '*', 'void', 'GLOBAL'],
+  ['PROJECT_MGR', '*', '*', 'void', 'PROJECT'],
 
   // Masters management (admin + relevant heads)
   ['PROCUREMENT_MGR', 'masters', 'suppliers', 'create', 'GLOBAL'],

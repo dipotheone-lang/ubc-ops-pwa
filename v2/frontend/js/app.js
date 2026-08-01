@@ -4,6 +4,8 @@
 (function () {
   'use strict';
   var el = UI.el, t = I18N.t, toast = UI.toast;
+  // Guarded JSON.parse: a single malformed server field must not abort a render.
+  function jparse(s, fallback) { try { return JSON.parse(s || ''); } catch (e) { return fallback; } }
   var STATE = { user: null, roles: [], perms: [], lookups: [], company: null, pending: 0 };
   // Bridge for the self-contained feature modules (dashboard.js / admin.js / notifications.js).
   window.APP = { state: STATE, can: can, go: function (v) { return go(v); }, reload: afterLogin };
@@ -13,8 +15,20 @@
     I18N.applyDir();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(function () {});
     document.getElementById('lang-btn').addEventListener('click', function () { I18N.toggle(); render(); });
+    if (window.SYNC) SYNC.init(updateSyncBadge);
     if (API.getToken() && API.getBase()) { afterLogin().catch(showLogin); }
     else showLogin();
+  }
+
+  // Small topbar indicator for mutations captured offline and awaiting sync.
+  function updateSyncBadge(n) {
+    var right = document.querySelector('.topbar-right'); if (!right) return;
+    var b = document.getElementById('sync-badge');
+    if (!n) { if (b && b.parentNode) b.parentNode.removeChild(b); return; }
+    if (!b) { b = el('span', { id: 'sync-badge', class: 'sync-badge' }); right.insertBefore(b, right.firstChild); }
+    b.textContent = '⇅ ' + n;
+    b.setAttribute('title', n + ' ' + (t('pending_sync') || 'pending sync'));
+    b.setAttribute('aria-label', n + ' ' + (t('pending_sync') || 'pending sync'));
   }
 
   /* ------------------------- permission helper ------------------------- */
@@ -155,6 +169,8 @@
       STATE.lookups = b.lookups || []; STATE.company = b.company; STATE.pending = b.pending_approvals || 0;
       document.getElementById('appbar').style.display = 'flex';
       render();
+      // Flush any offline-captured mutations now that we hold a fresh session.
+      if (window.SYNC) SYNC.drain().then(function (n) { if (n) toast((t('sync_done') || 'Synced') + ' (' + n + ')', 'success'); });
     });
   }
 
@@ -190,7 +206,7 @@
       el('div', { class: 'sidebar-user-name', text: (ar ? STATE.user.full_name_ar : STATE.user.full_name_en) || STATE.user.email }),
       el('div', { class: 'sidebar-user-role', text: roleName || STATE.user.email })
     ]));
-    foot.appendChild(el('button', { class: 'logout', title: t('logout'), onclick: logout }, [icon('ic-logout', 16)]));
+    foot.appendChild(el('button', { class: 'logout', title: t('logout'), 'aria-label': t('logout'), onclick: logout }, [icon('ic-logout', 16)]));
 
     // nav — grouped into ERP module sections
     var nav = document.getElementById('nav'); UI.clear(nav);
@@ -240,9 +256,9 @@
     var title = document.getElementById('app-title'); if (title) title.textContent = navLabel(view);
     var main = document.getElementById('view'); UI.clear(main);
     main.appendChild(el('div', { class: 'loading', text: t('loading') }));
-    var fn = ({ dashboard: function () { return window.DASHBOARD ? DASHBOARD.view() : vDashboard(); },
+    var fn = ({ dashboard: function () { return DASHBOARD.view(); },
       approvals: vApprovals, clients: vClients, suppliers: vSuppliers,
-      projects: vProjects, users: function () { return window.ADMIN ? ADMIN.view() : vUsers(); }, settings: vSettings,
+      projects: vProjects, users: function () { return ADMIN.view(); }, settings: vSettings,
       procurement: function () { return renderModule('procurement'); },
       warehouse: function () { return renderModule('warehouse'); },
       finance: function () { return renderModule('finance'); },
@@ -254,12 +270,9 @@
       prequal: function () { return renderModule('prequal'); },
       hr: function () { return renderModule('hr'); },
       assets: function () { return renderModule('assets'); },
-      hse: function () { return renderModule('hse'); } })[view] || vDashboard;
+      hse: function () { return renderModule('hse'); } })[view] || function () { return DASHBOARD.view(); };
     Promise.resolve(fn()).then(function (node) { UI.clear(main); main.appendChild(node); })
       .catch(function (e) { UI.clear(main); main.appendChild(el('div', { class: 'error-box', text: e.message })); });
-    // refresh nav active state
-    var nav = document.getElementById('nav');
-    Array.prototype.forEach.call(nav.children, function (a) { if (a.textContent.indexOf(t(view)) === 0) a.classList.add('active'); });
   }
 
   function section(title) { return el('div', { class: 'section-head' }, [el('h2', { text: title })]); }
@@ -270,24 +283,12 @@
   }
 
   /* ----------------------------- views --------------------------------- */
-  function vDashboard() {
-    var wrap = el('div', {});
-    wrap.appendChild(section(t('welcome') + ' ' + (I18N.pick(STATE.user, 'full_name') || STATE.user.email)));
-    wrap.appendChild(el('div', { class: 'stats' }, [
-      stat(t('pending_approvals'), STATE.pending),
-      stat(t('role_label'), (STATE.roles[0] && STATE.roles[0].role_code) || '—'),
-      stat(t('app'), STATE.company ? STATE.company.commercial_register : 'UBcsis')
-    ]));
-    return Promise.resolve(wrap);
-  }
-  function stat(label, val) { return el('div', { class: 'stat' }, [el('div', { class: 'stat-value', text: String(val) }), el('div', { class: 'stat-label', text: label })]); }
-
   function vApprovals() {
     return API.act('approvals.pending').then(function (rows) {
       var wrap = el('div', {}); wrap.appendChild(section(t('approvals')));
       if (!rows.length) { wrap.appendChild(el('p', { class: 'muted', text: t('no_records') })); return wrap; }
       rows.forEach(function (it) {
-        var r = it.request, s = it.step, roles = JSON.parse(s.roles_json || '[]');
+        var r = it.request, s = it.step, roles = jparse(s.roles_json, []);
         var box = el('div', { class: 'card' }, [
           el('div', { class: 'kv' }, [
             el('span', { text: t('domain') + ': ' + r.domain }),
@@ -360,7 +361,7 @@
       return masterList('projects',
         [{ key: 'project_code', label: t('code') }, { label: t('name_en'), render: function (r) { return I18N.pick(r, 'name'); } },
          { key: 'client_ref', label: t('client') }, { key: 'status', label: t('status') },
-         { label: 'Drive', render: function (r) { return r.drive_root_url ? el('a', { href: r.drive_root_url, target: '_blank', text: 'Open' }) : ''; } },
+         { label: 'Drive', render: function (r) { return r.drive_root_url ? UI.extLink(r.drive_root_url, t('open') || 'Open') : ''; } },
          { label: t('workspace'), render: function (r) { return el('button', { class: 'btn small primary', text: '🗂', title: t('workspace'), onclick: function () { openWorkspace(r); } }); } }],
         can('masters', 'projects', 'create'),
         function () { return [
@@ -372,36 +373,6 @@
           { name: 'currency', label: t('currency'), type: 'select', options: ['EGP', 'USD', 'EUR', 'GBP'] }
         ]; }, 'masters.project.create');
     });
-  }
-
-  function vUsers() {
-    return API.list('users').then(function (rows) {
-      var wrap = el('div', {}); wrap.appendChild(section(t('users')));
-      if (can('admin', 'users', 'create')) {
-        return API.list('roles').then(function (roles) {
-          var roleOpts = roles.map(function (r) { return { value: r.code, label: r.code + ' — ' + (I18N.current() === 'ar' ? r.name_ar : r.name_en) }; });
-          var f = UI.form([
-            { name: 'email', label: t('email'), type: 'email', required: true },
-            { name: 'full_name_en', label: t('full_name') + ' (EN)', required: true },
-            { name: 'full_name_ar', label: t('full_name') + ' (AR)' },
-            { name: 'role_code', label: t('role_label'), type: 'select', required: true, options: roleOpts }
-          ], t('create_user'), function (v) {
-            return API.act('admin.user.create', { record: v }).then(function (res) {
-              toast(t('temp_password') + ': ' + res.temporary_password, 'success'); go('users');
-            });
-          });
-          wrap.appendChild(card(t('create_user'), f.form));
-          wrap.appendChild(card(null, UI.table(rows, userCols())));
-          return wrap;
-        });
-      }
-      wrap.appendChild(card(null, UI.table(rows, userCols())));
-      return wrap;
-    });
-  }
-  function userCols() {
-    return [{ key: 'email', label: t('email') }, { label: t('full_name'), render: function (r) { return I18N.pick(r, 'full_name'); } },
-      { key: 'active', label: t('status') }];
   }
 
   function vSettings() {
@@ -671,6 +642,12 @@
         });
         if (le) rec.lines = le.getRows();
         var chain = Promise.resolve();
+        // Offline: attachments need a live connection, so skip them but still
+        // capture the record (it queues and replays on reconnect).
+        if (typeof navigator !== 'undefined' && !navigator.onLine && fileJobs.length) {
+          toast(t('offline_no_files') || 'Offline — record saved without attachment', 'info');
+          fileJobs = [];
+        }
         fileJobs.forEach(function (j) {
           chain = chain.then(function () {
             if (!rec.project_id) throw new Error('Select a project before attaching a file.');
@@ -679,7 +656,11 @@
           });
         });
         return chain.then(function () { return API.act(doc.action, { record: rec }); })
-          .then(function () { toast(t('new_doc') + ' ✓', 'success'); go(moduleKey); });
+          .then(function (res) {
+            var queued = res && res.queued;
+            toast(queued ? (t('offline_saved') || 'Saved offline') : (t('new_doc') + ' ✓'), queued ? 'info' : 'success');
+            go(moduleKey);
+          });
       });
       wrap.appendChild(card(t('new_doc') + ' — ' + t(doc.key), el('div', {}, [f.form, le ? el('h4', { text: t('line_items') }) : null, le ? le.node : null])));
     }
@@ -721,8 +702,8 @@
       var grid = el('div', { class: 'detail-grid' });
       Object.keys(rec).forEach(function (k) {
         if (AUDIT_KEYS[k] || rec[k] === '' || rec[k] == null) return;
-        var dv = (/_url$/.test(k) && /^https?:/.test(String(rec[k])))
-          ? el('a', { class: 'dv', href: rec[k], target: '_blank', text: '🔗 ' + t('open') })
+        var dv = (/_url$/.test(k) && UI.safeUrl(rec[k]))
+          ? el('a', { class: 'dv', href: UI.safeUrl(rec[k]), target: '_blank', rel: 'noopener noreferrer', text: '🔗 ' + t('open') })
           : el('div', { class: 'dv', text: String(rec[k]) });
         grid.appendChild(el('div', { class: 'detail-kv' }, [el('div', { class: 'dk', text: prettyLabel(k) }), dv]));
       });
@@ -741,7 +722,7 @@
         var steps = (d.approval.steps || []).slice().sort(function (a, b) { return Number(a.step_no) - Number(b.step_no); });
         var tl = el('div', { class: 'timeline' });
         steps.forEach(function (s) {
-          var roles = JSON.parse(s.roles_json || '[]'); var apps = JSON.parse(s.approvals_json || '[]');
+          var roles = jparse(s.roles_json, []); var apps = jparse(s.approvals_json, []);
           tl.appendChild(el('div', { class: 'tl-step ' + String(s.status).toLowerCase() }, [
             el('span', { class: 'tl-dot' }),
             el('div', {}, [
@@ -768,7 +749,7 @@
         var active = (d.approval.steps || []).filter(function (s) { return s.status === 'Active'; })[0];
         var myCodes = (STATE.roles || []).map(function (r) { return r.role_code; });
         var isInitiator = String(d.approval.request.initiator_user) === String(STATE.user.id);
-        if (active && !isInitiator && JSON.parse(active.roles_json || '[]').some(function (rc) { return myCodes.indexOf(rc) !== -1; })) {
+        if (active && !isInitiator && jparse(active.roles_json, []).some(function (rc) { return myCodes.indexOf(rc) !== -1; })) {
           var cmt = el('input', { class: 'cmt', placeholder: t('comment') });
           actions.appendChild(cmt);
           actions.appendChild(el('button', { class: 'btn primary', text: t('approve'), onclick: function () { decideFromDetail(d.approval.request.id, 'approve', cmt.value, m, moduleKey); } }));
@@ -814,7 +795,7 @@
         kv(t('code'), p.project_code), kv(t('client'), p.client_ref || ''), kv(t('status'), p.status),
         kv('PO ' + t('total'), fmt(d.po_value) + ' EGP'), kv(t('expense'), fmt(d.expense_total) + ' EGP'), kv('NCR', d.open_ncrs)
       ]));
-      if (p.drive_root_url) m.body.appendChild(el('p', {}, [el('a', { href: p.drive_root_url, target: '_blank', text: '🔗 Drive' })]));
+      if (p.drive_root_url) m.body.appendChild(el('p', {}, [UI.extLink(p.drive_root_url, '🔗 Drive')]));
       m.body.appendChild(el('h4', { text: t('records') }));
       var grid = el('div', { class: 'ws-grid' });
       (d.counts || []).forEach(function (c) {

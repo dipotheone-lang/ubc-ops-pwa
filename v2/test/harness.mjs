@@ -106,8 +106,10 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox, { filename: 'ubc-v2-backend.gs' });
 
 console.log('Loaded ' + files.length + ' .gs files into mock GAS context.\n');
+let failures = 0;
 const result = vm.runInContext('runAllTests()', sandbox);
 console.log(result);
+if (/(^|\n)FAIL/.test(result)) failures += (result.match(/(^|\n)FAIL/g) || []).length;
 
 // Extra end-to-end: full login → bootstrap → approval via the doPost router.
 console.log('\n--- E2E via doPost router ---');
@@ -115,6 +117,7 @@ function post(body) {
   const out = vm.runInContext('doPost(' + JSON.stringify({ postData: { contents: JSON.stringify(body) } }) + ')', sandbox);
   return JSON.parse(out);
 }
+function expect(cond, label) { if (!cond) { failures++; console.log('E2E FAIL: ' + label); } }
 // set a known password for the seeded CFO, then exercise the API surface
 vm.runInContext(`
   (function(){
@@ -126,11 +129,17 @@ vm.runInContext(`
 `, sandbox);
 const loginRes = post({ action: 'auth.login', email: 'cfo@ubcsis.com', password: 'Cfo12345' });
 console.log('login ok=' + loginRes.ok + ' role=' + (loginRes.data && loginRes.data.roles[0].role_code));
+expect(loginRes.ok && loginRes.data && loginRes.data.token, 'CFO login succeeds');
 const token = loginRes.data.token;
 const boot = post({ action: 'bootstrap', token });
 console.log('bootstrap ok=' + boot.ok + ' perms=' + boot.data.permissions.length + ' lookups=' + boot.data.lookups.length);
+expect(boot.ok && boot.data.permissions.length > 0, 'bootstrap returns permissions');
 const badCreate = post({ action: 'admin.user.create', token, record: { email: 'x@y.co', full_name_en: 'X' } });
 console.log('CFO create user (should be forbidden): ok=' + badCreate.ok + ' code=' + (badCreate.error && badCreate.error.code));
+expect(!badCreate.ok && badCreate.error && badCreate.error.code === 'FORBIDDEN', 'CFO cannot create users (RBAC)');
 const listClients = post({ action: 'list', token, entity: 'clients' });
 console.log('CFO list clients ok=' + listClients.ok + ' count=' + (listClients.data && listClients.data.length));
-console.log('\nDONE.');
+expect(listClients.ok && Array.isArray(listClients.data), 'CFO can list clients');
+
+console.log('\n' + (failures ? ('FAILED — ' + failures + ' failing check(s).') : 'DONE — all green.'));
+process.exit(failures ? 1 : 0);

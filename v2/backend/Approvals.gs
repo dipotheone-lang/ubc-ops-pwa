@@ -176,10 +176,19 @@ function decideApproval(requestId, authCtx, decision, comment) {
  * Generic: any entity with a 'status' column gets set to Approved/Rejected.
  * Never throws into the approval flow.
  */
+var APPROVAL_FROZEN_STATUS = ['Cancelled', 'Voided', 'Paid', 'Closed', 'Invoiced'];
 function applyApprovalOutcome_(req, outcome) {
   try {
     var rec = dbGet(req.entity, req.record_id);
-    if (rec && rec.hasOwnProperty('status')) dbUpdate(req.entity, req.record_id, { status: outcome }, 'approval-engine');
+    if (!rec || !rec.hasOwnProperty('status')) return;
+    // Don't resurrect or overwrite a document that was cancelled/settled while
+    // its approval was still in flight — the terminal state wins.
+    var cur = String(rec.status || '');
+    if (APPROVAL_FROZEN_STATUS.indexOf(cur) !== -1) {
+      console.warn('applyApprovalOutcome skipped: ' + req.entity + ' ' + req.record_id + ' is ' + cur);
+      return;
+    }
+    dbUpdate(req.entity, req.record_id, { status: outcome }, 'approval-engine');
   } catch (e) { console.error('applyApprovalOutcome failed: ' + (e && e.message)); }
 }
 

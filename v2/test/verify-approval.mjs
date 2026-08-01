@@ -3,6 +3,9 @@
  * Uses a Submitted MR (50,000 EGP → needs CONSTRUCTION_MGR + PROCUREMENT_MGR).
  */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function p(o) {
   const r = await fetch(exec, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) });
   try { return JSON.parse(await r.text()); } catch (e) { return { ok: false }; }
@@ -10,7 +13,7 @@ async function p(o) {
 const tok = async (e, pw) => { const l = await p({ action: 'auth.login', email: e, password: pw }); return l.data && l.data.token; };
 const line = (n, o) => console.log(n.padEnd(30), JSON.stringify(o));
 (async () => {
-  const admin = await tok('admin@ubcsis.com', 'UbcAdmin#2026');
+  const admin = await tok(ADMIN_EMAIL, ADMIN_PW);
   let mrs = await p({ action: 'list', token: admin, entity: 'material_requisitions' });
   const mr = (mrs.data || []).find(m => m.approval_id);
   if (!mr) { console.log('No submitted MR found.'); return; }

@@ -34,6 +34,7 @@ a{color:var(--red)}
 .topbar-spacer{flex:1}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .who{font-size:12.5px;color:var(--ink2);font-weight:600}
+.sync-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--warn-soft,#fdf0d5);color:var(--warn,#8a5a00);white-space:nowrap}
 .icon-btn{background:var(--bg);color:var(--ink2);border:1px solid var(--line);border-radius:9px;width:38px;height:38px;
   display:flex;align-items:center;justify-content:center;cursor:pointer}
 .icon-btn:hover{background:#fff;border-color:var(--navy3)}
@@ -149,6 +150,9 @@ td a,.links a{color:var(--red);text-decoration:none;font-weight:600}
 .field input,.field select,.field textarea,.cmt{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;
   font-size:14px;background:var(--bg);font-family:inherit;color:var(--ink)}
 .field input:focus,.field select:focus,.field textarea:focus,.cmt:focus{outline:0;border-color:var(--navy3);box-shadow:0 0 0 3px rgba(27,58,102,.12);background:#fff}
+/* Keyboard focus visibility for all interactive controls (mouse clicks stay clean via :focus-visible). */
+a:focus-visible,button:focus-visible,.nav-item:focus-visible,[tabindex]:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--navy3);outline-offset:2px;border-radius:6px}
+.field input[aria-invalid="true"],.field select[aria-invalid="true"],.field textarea[aria-invalid="true"]{border-color:var(--err);box-shadow:0 0 0 3px rgba(200,30,30,.12)}
 .field-error{color:var(--err);font-size:.78rem;min-height:0}
 .line-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
 .line-row input{flex:1;min-width:90px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}

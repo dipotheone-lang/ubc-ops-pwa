@@ -17,6 +17,22 @@ function setUserPassword(userId, newPassword, opts) {
   return publicUser_(u);
 }
 
+/** Secret columns that must never leave the server via generic reads. */
+var SECRET_COLS = { salt: 1, password_hash: 1, token_hash: 1 };
+
+/**
+ * Scrub a row for a generic list/get response: users go through publicUser_;
+ * every other entity has secret columns (session token hashes, stray password
+ * material) stripped so they can't leak through the general read path.
+ */
+function scrubRow_(entity, row) {
+  if (!row) return row;
+  if (entity === 'users') return publicUser_(row);
+  var out = {};
+  for (var k in row) if (row.hasOwnProperty(k) && !SECRET_COLS[k]) out[k] = row[k];
+  return out;
+}
+
 /** Strip secrets before returning a user to clients. */
 function publicUser_(u) {
   if (!u) return null;
@@ -37,11 +53,11 @@ function login(email, password, ctx) {
   // Uniform error to avoid user enumeration.
   var bad = function () { throw new AppError('AUTH_FAILED', 'Invalid email or password.', 401); };
   if (!u) { hashPassword(password || '', 'dummy-salt'); bad(); } // timing equalize
-  if (!truthy(u.active)) throw new AppError('ACCOUNT_DISABLED', 'Account is disabled.', 403);
 
-  if (u.locked_until && nowMs() < Number(u.locked_until)) {
-    throw new AppError('LOCKED', 'Account locked. Try again later.', 423);
-  }
+  // Verify the password FIRST, before revealing any account state. Wrong
+  // credentials always get the uniform AUTH_FAILED regardless of whether the
+  // account is disabled or locked, so login errors can't be used to enumerate
+  // accounts or probe their state — only a correct password reveals more.
   var computed = hashPassword(password || '', u.salt || 'x');
   if (!u.password_hash || !constantTimeEq(computed, u.password_hash)) {
     var attempts = Number(u.failed_attempts || 0) + 1;
@@ -52,8 +68,14 @@ function login(email, password, ctx) {
     bad();
   }
 
+  // Password correct — only now surface lockout / disabled state.
+  if (u.locked_until && nowMs() < Number(u.locked_until))
+    throw new AppError('LOCKED', 'Account locked. Try again later.', 423);
+  if (!truthy(u.active)) throw new AppError('ACCOUNT_DISABLED', 'Account is disabled.', 403);
+
   // success — reset counters, issue session
   dbUpdate('users', u.id, { failed_attempts: 0, locked_until: '' }, 'system');
+  try { pruneDeadSessions_(); } catch (e) {} // opportunistic cleanup (login is infrequent)
   var token = randomToken();
   var session = {
     id: uuid(), token_hash: sha256Hex(token), user_id: u.id,
@@ -75,9 +97,35 @@ function authenticate(token) {
   if (nowMs() > Number(s.expires_at)) throw new AppError('SESSION_EXPIRED', 'Session expired. Please log in again.', 401);
   var u = dbGet('users', s.user_id);
   if (!u || !truthy(u.active)) throw new AppError('NO_SESSION', 'Account unavailable.', 401);
-  // touch last_seen (best-effort, not under lock)
-  try { dbUpdate('sessions', s.id, { last_seen: nowIso() }, 'system'); } catch (e) {}
+  touchSession_(s); // best-effort, throttled, lockless — see below
   return { session: s, user: u, roles: getUserRoles(u.id) };
+}
+
+/**
+ * Update a session's last_seen without taking the global script lock, and only
+ * when it's gone stale (>5 min). authenticate() runs on EVERY request, so doing
+ * a locked write here would serialize all traffic (even reads) on one row —
+ * this keeps the hot path lock-free; last_seen is advisory so a benign race
+ * on the single cell is fine.
+ */
+function touchSession_(s) {
+  try {
+    var last = Date.parse(s.last_seen || '') || 0;
+    if (nowMs() - last < 5 * 60 * 1000) return; // throttle
+    var f = dbFind_('sessions', s.id);
+    if (!f) return;
+    var col = f.headers.indexOf('last_seen');
+    if (col !== -1) f.sheet.getRange(f.rowIndex, col + 1, 1, 1).setValue(nowIso());
+  } catch (e) {}
+}
+
+/** Delete revoked or expired sessions so the sheet (scanned every request) stays small. */
+function pruneDeadSessions_() {
+  var now = nowMs(), rows = dbList('sessions');
+  for (var i = 0; i < rows.length; i++) {
+    var s = rows[i];
+    if (truthy(s.revoked) || (s.expires_at && now > Number(s.expires_at))) dbDelete('sessions', s.id);
+  }
 }
 
 /** Revoke the current session (logout). */

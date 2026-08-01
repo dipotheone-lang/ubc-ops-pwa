@@ -5,8 +5,11 @@
  */
 function runAllTests() {
   initializeWorkbook(); // idempotent
-  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD,
-    t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
+  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_sanitizeCell, t_uploadRbac,
+    t_ownScope, t_mivStockGuard, t_docNumberNoWrap,
+    t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock,
+    t_financePV, t_financeDocs, t_correspondence, t_bd, t_construction, t_hrLeave, t_assets,
+    t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -67,6 +70,82 @@ function t_rbac() {
   rmUser_(admin); rmUser_(emp);
 }
 
+function t_sanitizeCell() {
+  assertEq_(sanitizeCell_('=1+1'), "'=1+1", 'formula = escaped');
+  assertEq_(sanitizeCell_('@SUM(A1)'), "'@SUM(A1)", 'formula @ escaped');
+  assertEq_(sanitizeCell_('+cmd|calc'), "'+cmd|calc", 'plus-text escaped');
+  assertEq_(sanitizeCell_('-IMPORTXML("x","y")'), "'-IMPORTXML(\"x\",\"y\")", 'minus-formula escaped');
+  assertEq_(sanitizeCell_('-12.5'), '-12.5', 'negative number kept');
+  assertEq_(sanitizeCell_('+3%'), '+3%', 'positive percent kept');
+  assertEq_(sanitizeCell_('hello world'), 'hello world', 'plain text kept');
+  assertEq_(sanitizeCell_(42), 42, 'numeric value passthrough');
+}
+
+function t_uploadRbac() {
+  var proj = dbInsert('projects', { code: 'UPLT', name_en: 'Upload Test Project', status: 'Active' }, 'test');
+  var PID = proj.id;
+  // STOREKEEPER holds warehouse writes only for its assigned project (PROJECT scope).
+  var sk = dbInsert('users', { email: 'test_sk_' + Date.now() + '@t.co', full_name_en: 'SK',
+    active: 'TRUE', default_lang: 'en', must_reset: 'FALSE' }, 'test');
+  assignRole(sk.id, 'STOREKEEPER', 'PROJECT', PID, 'test');
+  var skCtx = { user: { id: sk.id, email: sk.email }, roles: getUserRoles(sk.id) };
+  assert_(canUploadTo(skCtx, 'warehouse', PID), 'storekeeper can upload to own project warehouse slot');
+  assert_(!canUploadTo(skCtx, 'warehouse', 'other-project'), 'storekeeper blocked on a different project');
+  assert_(!canUploadTo(skCtx, 'finance', PID), 'storekeeper has no finance write capability');
+  // EMPLOYEE is view-only → cannot upload anywhere.
+  var emp = mkUser_('EMPLOYEE');
+  assert_(!canUploadTo(emp, 'construction', PID), 'view-only employee cannot upload');
+  rmUser_(emp);
+  dbList('role_assignments', { user_id: sk.id }).forEach(function (r) { dbDelete('role_assignments', r.id); });
+  dbDelete('users', sk.id);
+  dbDelete('projects', PID);
+}
+
+function t_ownScope() {
+  // EMPLOYEE holds hr/leave_requests 'view' only at OWN scope.
+  var emp = mkUser_('EMPLOYEE');
+  var mineEmp = dbInsert('employees', { emp_code: 'E-OWN', full_name_en: 'Owner', user_id: emp.user.id, status: 'Active' }, 'test');
+  var otherEmp = dbInsert('employees', { emp_code: 'E-OTH', full_name_en: 'Other', status: 'Active' }, 'test');
+  var mine = dbInsert('leave_requests', { leave_number: 'LV-1', employee_id: mineEmp.id, type: 'Annual', from_date: '2026-01-01', to_date: '2026-01-02', days: 2, status: 'Draft' }, 'test');
+  var theirs = dbInsert('leave_requests', { leave_number: 'LV-2', employee_id: otherEmp.id, type: 'Annual', from_date: '2026-01-01', to_date: '2026-01-02', days: 2, status: 'Draft' }, 'test');
+  var f = ownViewFilter_(emp, 'leave_requests');
+  assert_(f, 'employee gets an OWN-scope filter for leave_requests');
+  assertEq_(f.ownerId, mineEmp.id, 'owner resolved to the linked employee id');
+  var rows = dbList('leave_requests').filter(f.match);
+  assert_(rows.some(function (r) { return r.id === mine.id; }), 'sees own leave request');
+  assert_(!rows.some(function (r) { return r.id === theirs.id; }), 'does not see another employee\'s leave');
+  dbDelete('leave_requests', mine.id); dbDelete('leave_requests', theirs.id);
+  dbDelete('employees', mineEmp.id); dbDelete('employees', otherEmp.id); rmUser_(emp);
+}
+
+function t_mivStockGuard() {
+  var client = dbInsert('clients', { client_code: 'MG', name_en: 'MG', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'MG-P', client_id: client.id, name_en: 'MG P', status: 'Active' }, 'test');
+  var sk = mkUser_('STOREKEEPER');
+  Warehouse.createGRN({ project_id: proj.id, received_date: '2026-02-02', lines: [
+    { item_code: 'X1', description: 'X', unit: 'ea', qty_ordered: 10, qty_received: 10, qty_accepted: 10 }] }, sk);
+  assertThrows_(function () { Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'A',
+    lines: [{ item_code: 'X1', description: 'X', qty: 20 }] }, sk); }, 'INSUFFICIENT_STOCK');
+  assertThrows_(function () { Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'A',
+    lines: [{ item_code: 'NOPE', description: '?', qty: 1 }] }, sk); }, 'NO_STOCK');
+  assertEq_(dbList('stock_items', { project_id: proj.id, item_code: 'X1' })[0].qty_on_hand, 10, 'stock intact after rejected issues');
+  assertEq_(dbList('material_issues', { project_id: proj.id }).length, 0, 'no MIV persisted on failure');
+  dbList('stock_items', { project_id: proj.id }).forEach(function (s) { dbDelete('stock_items', s.id); });
+  dbList('goods_received_notes', { project_id: proj.id }).forEach(function (g) {
+    dbList('grn_lines', { grn_id: g.id }).forEach(function (l) { dbDelete('grn_lines', l.id); });
+    dbDelete('goods_received_notes', g.id);
+  });
+  rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_docNumberNoWrap() {
+  var year = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy');
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('SEQ_ZZ_' + year, '9999');
+  assertEq_(nextDocNumber('ZZ'), 'ZZ-' + year + '-10000', 'doc number grows past 9999 without truncation');
+  props.setProperty('SEQ_ZZ_' + year, '0'); // reset scratch counter
+}
+
 function t_approvalChain() {
   var client = dbInsert('clients', { client_code: 'TST', name_en: 'Test Client', status: 'Active' }, 'test');
   var initiator = mkUser_('SITE_ENGINEER'), cm = mkUser_('CONSTRUCTION_MGR'), pm = mkUser_('PROCUREMENT_MGR');
@@ -123,12 +202,150 @@ function t_phase2GrnStock() {
   Warehouse.createMIV({ project_id: proj.id, issue_date: '2026-02-03', issued_to: 'Site A', lines: [
     { item_code: 'CEM-001', description: 'Cement', unit: 'bag', qty: 30 }] }, sk);
   assertEq_(dbList('stock_items', { project_id: proj.id, item_code: 'CEM-001' })[0].qty_on_hand, 70, 'stock decremented by MIV');
-  // cleanup
+  // cleanup — headers carry project_id; lines are reached via their parent id.
   dbList('stock_items', { project_id: proj.id }).forEach(function (s) { dbDelete('stock_items', s.id); });
-  ['goods_received_notes', 'grn_lines', 'material_issues', 'miv_lines'].forEach(function (e) {
-    dbList(e).forEach(function (r) { if (String(r.project_id) === String(proj.id) || true) { /* lines lack project_id */ } });
+  dbList('goods_received_notes', { project_id: proj.id }).forEach(function (g) {
+    dbList('grn_lines', { grn_id: g.id }).forEach(function (l) { dbDelete('grn_lines', l.id); });
+    dbDelete('goods_received_notes', g.id);
+  });
+  dbList('material_issues', { project_id: proj.id }).forEach(function (m) {
+    dbList('miv_lines', { miv_id: m.id }).forEach(function (l) { dbDelete('miv_lines', l.id); });
+    dbDelete('material_issues', m.id);
   });
   rmUser_(sk); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_financePV() {
+  var client = dbInsert('clients', { client_code: 'FPV', name_en: 'FPV Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'FPV-PRJ', client_id: client.id, name_en: 'FPV Proj', status: 'Active', currency: 'EGP' }, 'test');
+  var maker = mkUser_('EMPLOYEE'); // neutral initiator (SoD: can't be a signer)
+  // Bank Transfer ≤250K routes to payment_transfer band {all: FINANCE_CONTROLLER + CFO}.
+  var pv = Finance.createPV({ project_id: proj.id, amount: '100000', payment_method: 'Bank Transfer', payee: 'ACME' }, maker);
+  assertEq_(pv.status, 'Draft', 'PV created as Draft');
+  assertEq_(pv.amount, 100000, 'PV amount coerced to number');
+  assertEq_(pv.currency, 'EGP', 'PV currency defaults to EGP');
+  assert_(/^PV-/.test(pv.pv_number), 'PV has a PV- document number');
+  var sub = submitDocument('payment_vouchers', pv.id, maker);
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Submitted', 'PV submitted');
+  assertEq_(sub.request.domain, 'payment_transfer', 'transfer routing (not cheque)');
+  assertEq_(sub.steps.length, 1, 'transfer ≤250K is a single all-mode step');
+  var fc = mkUser_('FINANCE_CONTROLLER'), cfo = mkUser_('CFO');
+  decideApproval(sub.request.id, fc, 'approve', 'maker ok');
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Submitted', 'still submitted after 1 of 2 signers');
+  var done = decideApproval(sub.request.id, cfo, 'approve', 'cfo ok');
+  assertEq_(done.request.status, 'Approved', 'approval completes with both signers');
+  assertEq_(dbGet('payment_vouchers', pv.id).status, 'Approved', 'PV status flipped via approval outcome');
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id); dbDelete('payment_vouchers', pv.id);
+  rmUser_(maker); rmUser_(fc); rmUser_(cfo); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_financeDocs() {
+  var client = dbInsert('clients', { client_code: 'FDX', name_en: 'FDX Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'FDX-PRJ', client_id: client.id, name_en: 'FDX Proj', status: 'Active' }, 'test');
+  var acc = mkUser_('EMPLOYEE');
+  // Receipt voucher: terminal 'Recorded', numeric coercion, default method.
+  var rv = Finance.createRV({ project_id: proj.id, client_id: client.id, payer: 'Client', amount: '50000', wht_amount: '2500', retention_amount: '5000' }, acc);
+  assertEq_(rv.status, 'Recorded', 'RV recorded on create');
+  assertEq_(rv.amount, 50000, 'RV amount numeric');
+  assertEq_(rv.wht_amount, 2500, 'RV WHT numeric');
+  assertEq_(rv.method, 'Bank Transfer', 'RV method defaults to Bank Transfer');
+  assert_(/^RV-/.test(rv.rv_number), 'RV has an RV- number');
+  // Expense: Draft, numeric amount.
+  var ex = Finance.createExpense({ project_id: proj.id, expense_date: '2026-03-01', amount: '1200.50', category: 'Materials', vendor: 'Depot' }, acc);
+  assertEq_(ex.status, 'Draft', 'expense created as Draft');
+  assertEq_(ex.amount, 1200.5, 'expense amount numeric');
+  assert_(/^EXP-/.test(ex.exp_number), 'expense has an EXP- number');
+  dbDelete('receipt_vouchers', rv.id); dbDelete('expenses', ex.id);
+  rmUser_(acc); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_correspondence() {
+  var author = mkUser_('EMPLOYEE');
+  var letter = Correspondence.create({ type: 'General', recipient: 'Consultant',
+    subject_ar: 'إشعار', body_ar: '=HYPERLINK("http://evil","x")' }, author);
+  assertEq_(letter.status, 'Draft', 'letter created as Draft');
+  assertEq_(letter.type, 'General', 'letter type preserved');
+  assert_(/^COR-/.test(letter.letter_number), 'letter has a COR- number');
+  // Free-text letter body must be neutralized against formula injection on write.
+  assertEq_(String(dbGet('correspondence', letter.id).body_ar).charAt(0), "'", 'letter body formula is escaped');
+  var issued = Correspondence.issue(letter.id, author);
+  assertEq_(issued.status, 'Issued', 'letter issued');
+  assertEq_(String(issued.signed_by), String(author.user.id), 'issuer recorded as signer');
+  dbDelete('correspondence', letter.id); rmUser_(author);
+}
+
+function t_bd() {
+  var client = dbInsert('clients', { client_code: 'BD', name_en: 'BD Client', status: 'Active' }, 'test');
+  var bd = mkUser_('EMPLOYEE');
+  var opp = BD.createOpportunity({ client_id: client.id, title: 'Metro Tender', estimated_value: '5000000', probability: '40' }, bd);
+  assertEq_(opp.status, 'Open', 'opportunity opens as Open');
+  assertEq_(opp.stage, 'Lead', 'opportunity default stage Lead');
+  assertEq_(opp.estimated_value, 5000000, 'opportunity value coerced numeric');
+  assertEq_(String(opp.owner_user), String(bd.user.id), 'owner defaults to creator');
+  assert_(/^OPP-/.test(opp.opp_number), 'opportunity has OPP- number');
+  assertEq_(BD.advanceOpportunity(opp.id, 'Qualified', bd).status, 'Open', 'non-terminal stage keeps status Open');
+  assertEq_(BD.advanceOpportunity(opp.id, 'Won', bd).status, 'Won', 'stage Won sets status Won');
+  var it = BD.logInteraction({ opportunity_id: opp.id, client_id: client.id, type: 'Meeting', interaction_date: '2026-03-02', summary: 'kickoff' }, bd);
+  assert_(it.id, 'interaction logged');
+  dbDelete('interactions', it.id); dbDelete('opportunities', opp.id); rmUser_(bd); dbDelete('clients', client.id);
+}
+
+function t_construction() {
+  var client = dbInsert('clients', { client_code: 'CON', name_en: 'CON Client', status: 'Active' }, 'test');
+  var proj = dbInsert('projects', { project_code: 'CON-PRJ', client_id: client.id, name_en: 'CON Proj', status: 'Active' }, 'test');
+  var se = mkUser_('EMPLOYEE');
+  var dsr = Construction.createDailyReport({ project_id: proj.id, report_date: '2026-03-01', weather: 'Clear',
+    manpower_count: '12', equipment_count: '3', progress_pct: '30', activities: 'Excavation' }, se);
+  assertEq_(dsr.manpower_count, 12, 'DSR manpower coerced numeric');
+  assertEq_(dsr.progress_pct, 30, 'DSR progress coerced numeric');
+  assert_(/^DSR-/.test(dsr.dsr_number), 'DSR has DSR- number');
+  var si = Construction.createSiteInstruction({ project_id: proj.id, subject: 'Rework wall', issued_to: 'Foreman' }, se);
+  assertEq_(si.status, 'Open', 'site instruction opens as Open');
+  assert_(/^SI-/.test(si.si_number), 'SI has SI- number');
+  dbDelete('daily_site_reports', dsr.id); dbDelete('site_instructions', si.id);
+  rmUser_(se); dbDelete('projects', proj.id); dbDelete('clients', client.id);
+}
+
+function t_hrLeave() {
+  var maker = mkUser_('EMPLOYEE');
+  var emp = HR.createEmployee({ full_name_en: 'Worker' }, maker);
+  assertEq_(emp.contract_type, 'Permanent', 'employee default contract Permanent');
+  assertEq_(emp.status, 'Active', 'employee defaults to Active');
+  assert_(/^EMP-/.test(emp.emp_code), 'employee auto emp_code');
+  // Inclusive day count when days omitted: 01→05 March = 5 days.
+  var lv = HR.createLeave({ employee_id: emp.id, type: 'Annual', from_date: '2026-03-01', to_date: '2026-03-05' }, maker);
+  assertEq_(lv.days, 5, 'leave days computed inclusive');
+  assertEq_(lv.status, 'Draft', 'leave created as Draft');
+  var sub = submitDocument('leave_requests', lv.id, maker);
+  assertEq_(dbGet('leave_requests', lv.id).status, 'Submitted', 'leave submitted');
+  var hr = mkUser_('HR_MGR');
+  var done = decideApproval(sub.request.id, hr, 'approve', 'ok');
+  assertEq_(done.request.status, 'Approved', 'leave approved by HR manager');
+  assertEq_(dbGet('leave_requests', lv.id).status, 'Approved', 'leave status flipped via outcome');
+  var ts = HR.createTimesheet({ employee_id: emp.id, period: '2026-03', days_worked: '22', ot_hours: '5' }, maker);
+  assertEq_(ts.days_worked, 22, 'timesheet days coerced numeric');
+  assertEq_(ts.status, 'Draft', 'timesheet created as Draft');
+  dbList('approval_steps', { request_id: sub.request.id }).forEach(function (s) { dbDelete('approval_steps', s.id); });
+  dbDelete('approval_requests', sub.request.id);
+  dbDelete('timesheets', ts.id); dbDelete('leave_requests', lv.id); dbDelete('employees', emp.id);
+  rmUser_(maker); rmUser_(hr);
+}
+
+function t_assets() {
+  var maker = mkUser_('EMPLOYEE');
+  var asset = Assets.createAsset({ name: 'Excavator', category: 'Heavy Equipment', cost: '2500000', status: 'Under Maintenance' }, maker);
+  assertEq_(asset.status, 'Under Maintenance', 'asset status preserved on create');
+  assertEq_(asset.cost, 2500000, 'asset cost coerced numeric');
+  assert_(/^AST-/.test(asset.asset_code), 'asset auto asset_code');
+  // Corrective maintenance returns the asset to service (side-effect).
+  var mnt = Assets.logMaintenance({ asset_id: asset.id, type: 'Corrective', mnt_date: '2026-03-03', cost: '12000' }, maker);
+  assert_(/^MNT-/.test(mnt.mnt_number), 'maintenance MNT- number');
+  assertEq_(dbGet('assets', asset.id).status, 'In Service', 'corrective maintenance returns asset to service');
+  var cal = Assets.logCalibration({ asset_id: asset.id, calibrated_date: '2026-03-03', due_date: '2027-03-03', cert_no: 'C-1' }, maker);
+  assertEq_(cal.status, 'Valid', 'calibration record marked Valid');
+  assert_(/^CAL-/.test(cal.cal_number), 'calibration CAL- number');
+  dbDelete('calibration_records', cal.id); dbDelete('maintenance_records', mnt.id); dbDelete('assets', asset.id); rmUser_(maker);
 }
 
 function t_phase3Tender() {

@@ -1,21 +1,26 @@
 /**
- * build.mjs — produce a deploy-ready static bundle in dist/.
+ * build.mjs — produce a deploy-ready static bundle.
  *
  * The frontend is dependency-free vanilla JS, so "build" = a verbatim copy of
- * frontend/ into dist/. We deliberately do NOT strip comments or minify:
- * naive regex comment-stripping corrupts code (e.g. the `/*` inside the string
- * 'image/*'), and the payoff is negligible for an internal app. dist/ is what
- * you deploy to Firebase Hosting / GitHub Pages / Vercel.
+ * the source frontend into the output dir. We deliberately do NOT strip
+ * comments or minify: naive regex comment-stripping corrupts code (e.g. the
+ * `/*` inside the string 'image/*'), and the payoff is negligible for an
+ * internal app. The output dir is what you deploy to Firebase / GitHub Pages /
+ * Vercel.
  *
- * Usage:  node scripts/build.mjs
+ * v2 is the current product, so it is the default source. v1 lives on only as a
+ * legacy artifact (built explicitly by the Pages workflow into its own dir).
+ *
+ * Usage:  node scripts/build.mjs [srcRelDir] [outRelDir]
+ *   defaults: srcRelDir = v2/frontend , outRelDir = dist
  */
 import { mkdirSync, readdirSync, statSync, rmSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const src = join(root, 'frontend');
-const dist = join(root, 'dist');
+const src = join(root, process.argv[2] || 'v2/frontend');
+const dist = join(root, process.argv[3] || 'dist');
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
