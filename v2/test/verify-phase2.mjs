@@ -2,13 +2,16 @@
  *   node v2/test/verify-phase2.mjs <execUrl>
  */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function post(o) {
   const r = await fetch(exec, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) });
   try { return JSON.parse(await r.text()); } catch (e) { return { ok: false }; }
 }
 const line = (n, o) => console.log(n.padEnd(24), JSON.stringify(o));
 (async () => {
-  let l = await post({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  let l = await post({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   const tok = l.data && l.data.token; line('login', { ok: l.ok });
   if (!tok) return;
   let rs = await post({ action: 'admin.reseed', token: tok });

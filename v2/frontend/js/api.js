@@ -6,8 +6,10 @@
 (function () {
   'use strict';
 
-  // Default to the deployed v2 Web App; overridable via Settings (localStorage).
-  var DEFAULT_BASE = 'https://script.google.com/macros/s/AKfycbwGnEeLqPeSXx4KX4MSYPwF_ZmDXEYZdOjzr5jEuLlCopl3Aw7yfoy7q8h3qlBYqhbE/exec';
+  // The Web App /exec URL is configured at runtime (login screen or Settings)
+  // and stored in localStorage — never hardcoded, so the deployment endpoint is
+  // not baked into source or the shipped bundle.
+  var DEFAULT_BASE = '';
   function base() {
     var b = localStorage.getItem('ubc_api_base') || DEFAULT_BASE;
     if (!b) throw new Error('API URL not configured.');

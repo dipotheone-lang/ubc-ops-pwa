@@ -60,6 +60,13 @@ var ENTITY_MODULE = {
 };
 function moduleOf_(entity) { return ENTITY_MODULE[entity] || 'admin'; }
 
+/** Drive folder slot → owning module, for authorizing attachment uploads. */
+var UPLOAD_SLOT_MODULE = {
+  procurement: 'procurement', technical: 'techoffice', accounting: 'finance',
+  warehouse: 'warehouse', site: 'construction'
+};
+function uploadModuleForSlot_(slot) { return UPLOAD_SLOT_MODULE[slot] || 'construction'; }
+
 /** parent entity → its child line entity + foreign key (for doc.detail drill-down). */
 var DOC_LINES = {
   material_requisitions: { entity: 'mr_lines', fk: 'mr_id' },
@@ -219,9 +226,24 @@ function dispatch_(action, body, authCtx) {
     }
     case 'file.upload': {
       requireFields(body, ['fileName', 'base64']);
-      var folderId = body.folderId || (body.project_id ? projectFolderId(body.project_id, body.slot || 'site') : null);
-      if (!folderId) throw new AppError('VALIDATION', 'folderId or project_id+slot required.');
-      return uploadBase64ToFolder(folderId, body.fileName, body.mimeType, body.base64);
+      var upFolderId;
+      if (body.project_id) {
+        var upSlot = body.slot || 'site';
+        // Must be able to contribute to this project in the slot's module.
+        if (!canUploadTo(authCtx, uploadModuleForSlot_(upSlot), body.project_id))
+          throw new AppError('FORBIDDEN', 'Not authorized to upload to project ' + body.project_id + '.', 403);
+        upFolderId = projectFolderId(body.project_id, upSlot);
+      } else if (body.folderId) {
+        // A raw folderId bypasses project scoping entirely — restrict to admins.
+        requirePermission(authCtx, { module: 'admin', entity: '*', action: 'admin' });
+        upFolderId = body.folderId;
+      } else {
+        throw new AppError('VALIDATION', 'folderId or project_id+slot required.');
+      }
+      var upRes = uploadBase64ToFolder(upFolderId, body.fileName, body.mimeType, body.base64);
+      audit({ user_id: authCtx.user.id, user_email: actor, action: 'upload', module: 'files',
+        entity: 'attachment', record_id: upRes.id, note: String(body.fileName || '') });
+      return upRes;
     }
     case 'doc.submit': {
       requireFields(body, ['entity', 'id']);

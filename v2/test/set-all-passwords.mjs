@@ -3,12 +3,29 @@
  * already-deployed endpoints: admin.user.resetPassword (temp) -> auth.login (temp)
  * -> auth.changePassword (target, clears must_reset). Idempotent / re-runnable.
  *
- *   node v2/test/set-all-passwords.mjs [execUrl] [adminEmail] [adminPassword] [newPassword]
+ * No endpoint or credentials are baked into this file — supply them at runtime
+ * via CLI args or environment variables:
+ *
+ *   node v2/test/set-all-passwords.mjs <execUrl> <adminEmail> <adminPassword> <newPassword>
+ *   # or
+ *   UBC_EXEC_URL=… UBC_ADMIN_EMAIL=… UBC_ADMIN_PW=… UBC_NEW_PW=… node v2/test/set-all-passwords.mjs
  */
-const EXEC = process.argv[2] || 'https://script.google.com/macros/s/AKfycbwGnEeLqPeSXx4KX4MSYPwF_ZmDXEYZdOjzr5jEuLlCopl3Aw7yfoy7q8h3qlBYqhbE/exec';
-const ADMIN_EMAIL = (process.argv[3] || 'admin@ubcsis.com').toLowerCase();
-const ADMIN_PW = process.argv[4] || 'UbcAdmin#2026';
-const NEW_PW = process.argv[5] || 'UbcAdmin#2026';
+const EXEC = process.argv[2] || process.env.UBC_EXEC_URL || '';
+const ADMIN_EMAIL = (process.argv[3] || process.env.UBC_ADMIN_EMAIL || '').toLowerCase();
+const ADMIN_PW = process.argv[4] || process.env.UBC_ADMIN_PW || '';
+const NEW_PW = process.argv[5] || process.env.UBC_NEW_PW || '';
+
+if (!EXEC || !ADMIN_EMAIL || !ADMIN_PW || !NEW_PW) {
+  console.error(
+    'Missing required configuration. Provide all four via args or env vars:\n' +
+    '  execUrl        (arg 1 | UBC_EXEC_URL)\n' +
+    '  adminEmail     (arg 2 | UBC_ADMIN_EMAIL)\n' +
+    '  adminPassword  (arg 3 | UBC_ADMIN_PW)\n' +
+    '  newPassword    (arg 4 | UBC_NEW_PW)\n\n' +
+    'Usage: node v2/test/set-all-passwords.mjs <execUrl> <adminEmail> <adminPassword> <newPassword>'
+  );
+  process.exit(2);
+}
 
 async function post(payload, tries = 6) {
   let lastErr;

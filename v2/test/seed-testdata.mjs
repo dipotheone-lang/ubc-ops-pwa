@@ -3,6 +3,9 @@
  * Cleanup later: POST admin.purgeTestData (deletes everything created_by *@ubcsis.test).
  */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function p(o, n) {
   for (let i = 0; i < (n || 6); i++) {
     try { const r = await fetch(exec, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) }); return JSON.parse(await r.text()); }
@@ -26,7 +29,7 @@ const T = (k) => U[k] && U[k].token;
 const pick = (a, i) => a[i % a.length];
 
 (async () => {
-  const al = await p({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  const al = await p({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   adminTok = al.data && al.data.token; if (!adminTok) { log('admin login failed'); return; }
   log('creating test users…');
   for (const u of [['tester', 'Test Admin', 'ADMIN'], ['ceo', 'Test CEO', 'CEO'], ['coo', 'Test COO', 'COO'], ['cfo', 'Test CFO', 'CFO'],

@@ -5,8 +5,8 @@
  */
 function runAllTests() {
   initializeWorkbook(); // idempotent
-  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_approvalChain, t_approvalSoD,
-    t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
+  var tests = [t_doaResolution, t_passwordHash, t_loginLockout, t_rbac, t_sanitizeCell, t_uploadRbac,
+    t_approvalChain, t_approvalSoD, t_phase2Procurement, t_phase2GrnStock, t_phase3Tender, t_phase4HseRisk];
   var out = [];
   for (var i = 0; i < tests.length; i++) {
     try { tests[i](); out.push('PASS  ' + tests[i].name); }
@@ -65,6 +65,37 @@ function t_rbac() {
   assert_(!can(emp, { module: 'admin', entity: 'users', action: 'create' }), 'employee cannot create users');
   assert_(!can(emp, { module: 'masters', entity: 'clients', action: 'create' }), 'employee cannot create clients');
   rmUser_(admin); rmUser_(emp);
+}
+
+function t_sanitizeCell() {
+  assertEq_(sanitizeCell_('=1+1'), "'=1+1", 'formula = escaped');
+  assertEq_(sanitizeCell_('@SUM(A1)'), "'@SUM(A1)", 'formula @ escaped');
+  assertEq_(sanitizeCell_('+cmd|calc'), "'+cmd|calc", 'plus-text escaped');
+  assertEq_(sanitizeCell_('-IMPORTXML("x","y")'), "'-IMPORTXML(\"x\",\"y\")", 'minus-formula escaped');
+  assertEq_(sanitizeCell_('-12.5'), '-12.5', 'negative number kept');
+  assertEq_(sanitizeCell_('+3%'), '+3%', 'positive percent kept');
+  assertEq_(sanitizeCell_('hello world'), 'hello world', 'plain text kept');
+  assertEq_(sanitizeCell_(42), 42, 'numeric value passthrough');
+}
+
+function t_uploadRbac() {
+  var proj = dbInsert('projects', { code: 'UPLT', name_en: 'Upload Test Project', status: 'Active' }, 'test');
+  var PID = proj.id;
+  // STOREKEEPER holds warehouse writes only for its assigned project (PROJECT scope).
+  var sk = dbInsert('users', { email: 'test_sk_' + Date.now() + '@t.co', full_name_en: 'SK',
+    active: 'TRUE', default_lang: 'en', must_reset: 'FALSE' }, 'test');
+  assignRole(sk.id, 'STOREKEEPER', 'PROJECT', PID, 'test');
+  var skCtx = { user: { id: sk.id, email: sk.email }, roles: getUserRoles(sk.id) };
+  assert_(canUploadTo(skCtx, 'warehouse', PID), 'storekeeper can upload to own project warehouse slot');
+  assert_(!canUploadTo(skCtx, 'warehouse', 'other-project'), 'storekeeper blocked on a different project');
+  assert_(!canUploadTo(skCtx, 'finance', PID), 'storekeeper has no finance write capability');
+  // EMPLOYEE is view-only → cannot upload anywhere.
+  var emp = mkUser_('EMPLOYEE');
+  assert_(!canUploadTo(emp, 'construction', PID), 'view-only employee cannot upload');
+  rmUser_(emp);
+  dbList('role_assignments', { user_id: sk.id }).forEach(function (r) { dbDelete('role_assignments', r.id); });
+  dbDelete('users', sk.id);
+  dbDelete('projects', PID);
 }
 
 function t_approvalChain() {

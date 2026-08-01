@@ -1,5 +1,8 @@
 /** verify-depth.mjs — exercise doc.update/void, project.workspace, file.upload. */
 const exec = process.argv[2];
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 async function p(o, n) {
   for (let i = 0; i < (n || 6); i++) {
     try { const r = await fetch(exec, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(o) }); return JSON.parse(await r.text()); }
@@ -10,7 +13,7 @@ async function p(o, n) {
 const L = (n, o) => console.log(n.padEnd(26), JSON.stringify(o));
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 (async () => {
-  const l = await p({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  const l = await p({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   const t = l.data && l.data.token; L('login', { ok: l.ok }); if (!t) return;
   const prj = await p({ action: 'list', token: t, entity: 'projects' });
   const projId = prj.data[0].id;

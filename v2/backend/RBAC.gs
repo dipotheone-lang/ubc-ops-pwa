@@ -76,6 +76,38 @@ function requirePermission(authCtx, ctx) {
   return true;
 }
 
+/**
+ * Attachment-upload gate. Uploads aren't tied to a single entity, so we can't
+ * use the entity-specific can(): we ask whether the user holds ANY write-ish
+ * capability (create/edit/submit, or admin) in `module` at a scope the project
+ * satisfies. This mirrors the real flow — you attach a file while creating a
+ * document in that module, which you must already be permitted to create.
+ */
+function canUploadTo(authCtx, module, projectId) {
+  var roles = authCtx.roles || [];
+  var codes = userRoleCodes(roles);
+  var perms = allPermissions_();
+  var WRITE = { create: 1, edit: 1, submit: 1, admin: 1 };
+  for (var i = 0; i < perms.length; i++) {
+    var p = perms[i];
+    if (codes.indexOf(p.role_code) === -1) continue;
+    if (p.module !== '*' && p.module !== module) continue;
+    if (!WRITE[p.action]) continue; // entity-agnostic: any write-ish action
+    if (p.scope === 'GLOBAL') return true;
+    if (p.scope === 'PROJECT') {
+      if (!projectId) continue;
+      for (var j = 0; j < roles.length; j++) {
+        var ra = roles[j];
+        if (ra.role_code !== p.role_code) continue;
+        if (ra.scope_type === 'GLOBAL') return true;
+        if (ra.scope_type === 'PROJECT' && String(ra.project_id) === String(projectId)) return true;
+      }
+    }
+    // OWN scope is meaningless for a project-folder upload — skip.
+  }
+  return false;
+}
+
 /** True if the user holds a given role (any scope). */
 function hasRole(authCtx, roleCode) {
   return userRoleCodes(authCtx.roles || []).indexOf(roleCode) !== -1;

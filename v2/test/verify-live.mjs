@@ -3,6 +3,9 @@
  */
 const exec = process.argv[2];
 if (!exec) { console.error('Usage: node verify-live.mjs <execUrl>'); process.exit(1); }
+const ADMIN_EMAIL = process.env.UBC_ADMIN_EMAIL || 'admin@ubcsis.com';
+const ADMIN_PW = process.env.UBC_ADMIN_PW;
+if (!ADMIN_PW) { console.error('Set UBC_ADMIN_PW (admin password) in the environment.'); process.exit(2); }
 
 async function post(obj) {
   const r = await fetch(exec, { method: 'POST', redirect: 'follow',
@@ -13,10 +16,10 @@ async function post(obj) {
 const line = (n, o) => console.log(n.padEnd(28), JSON.stringify(o));
 
 (async () => {
-  let r = await post({ action: 'setup.claim', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  let r = await post({ action: 'setup.claim', email: ADMIN_EMAIL, password: ADMIN_PW });
   line('1 setup.claim', { ok: r.ok, claimed: r.data && r.data.claimed, err: r.error && r.error.code, msg: r.error && r.error.message, raw: r.raw });
 
-  r = await post({ action: 'auth.login', email: 'admin@ubcsis.com', password: 'UbcAdmin#2026' });
+  r = await post({ action: 'auth.login', email: ADMIN_EMAIL, password: ADMIN_PW });
   line('2 login', { ok: r.ok, role: r.data && r.data.roles[0] && r.data.roles[0].role_code, err: r.error && r.error.code });
   const tok = r.data && r.data.token;
   if (!tok) { console.log('No token — stopping.'); return; }
