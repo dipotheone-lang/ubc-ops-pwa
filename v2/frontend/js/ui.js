@@ -7,7 +7,6 @@
     var n = document.createElement(tag); attrs = attrs || {};
     Object.keys(attrs).forEach(function (k) {
       if (k === 'class') n.className = attrs[k];
-      else if (k === 'html') n.innerHTML = attrs[k];
       else if (k === 'text') n.textContent = attrs[k];
       else if (k.indexOf('on') === 0 && typeof attrs[k] === 'function') n.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
       else if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
@@ -16,6 +15,15 @@
     return n;
   }
   function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  // Only allow http(s) links from backend data through to href — blocks
+  // javascript:/data: schemes that would execute on click.
+  function safeUrl(u) { u = String(u == null ? '' : u); return /^https?:\/\//i.test(u) ? u : ''; }
+  // Build a hardened external link (validated href + rel to stop tabnabbing).
+  function extLink(url, text) {
+    var href = safeUrl(url);
+    if (!href) return el('span', { class: 'muted', text: text || '' });
+    return el('a', { href: href, target: '_blank', rel: 'noopener noreferrer', text: text || href });
+  }
   var _tt;
   function toast(msg, kind) {
     var t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show ' + (kind || 'info');
@@ -168,5 +176,5 @@
     return wrap;
   }
 
-  window.UI = { el: el, clear: clear, toast: toast, form: form, table: table, modal: modal, dataTable: dataTable };
+  window.UI = { el: el, clear: clear, safeUrl: safeUrl, extLink: extLink, toast: toast, form: form, table: table, modal: modal, dataTable: dataTable };
 })();

@@ -10,7 +10,8 @@
 (function () {
   'use strict';
   var el = UI.el, t = I18N.t, toast = UI.toast;
-  function can(m, e, a) { return !window.APP || !window.APP.can || window.APP.can(m, e, a); }
+  // Fail closed: if the permission bridge is missing, deny (backend re-enforces).
+  function can(m, e, a) { return !!(window.APP && window.APP.can && window.APP.can(m, e, a)); }
   function roleName(r) { return I18N.current() === 'ar' ? (r.name_ar || r.name_en) : (r.name_en || r.name_ar); }
 
   /* ------------------------------- modal -------------------------------- */
