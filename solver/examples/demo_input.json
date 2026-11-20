@@ -1,0 +1,870 @@
+{
+  "as_of": "2026-11-20",
+  "params": {
+    "max_suppliers_per_mr": 3
+  },
+  "suppliers": [
+    {
+      "id": "S1",
+      "name": "المتحدة للحديد",
+      "avl_status": "Approved",
+      "rating": 4.5,
+      "status": "Active",
+      "min_order_value": 100000
+    },
+    {
+      "id": "S2",
+      "name": "النيل للتوريدات",
+      "avl_status": "Approved",
+      "rating": 4.0,
+      "status": "Active"
+    },
+    {
+      "id": "S3",
+      "name": "الدلتا للخامات",
+      "avl_status": "Approved",
+      "rating": 3.2,
+      "status": "Active"
+    },
+    {
+      "id": "S4",
+      "name": "الصعيد للمواد",
+      "avl_status": "Conditional",
+      "rating": 3.8,
+      "status": "Active"
+    },
+    {
+      "id": "S5",
+      "name": "الشروق للكهرباء",
+      "avl_status": "Approved",
+      "rating": 4.7,
+      "status": "Active"
+    },
+    {
+      "id": "S6",
+      "name": "المقاولون العرب للدهانات",
+      "avl_status": "Approved",
+      "rating": 4.1,
+      "status": "Active"
+    },
+    {
+      "id": "S7",
+      "name": "مورد غير معتمد",
+      "avl_status": "Rejected",
+      "rating": 2.0,
+      "status": "Active"
+    }
+  ],
+  "requirements": [
+    {
+      "line_id": "L001",
+      "mr_id": "MR-001",
+      "project_id": "P-NewCairo",
+      "item": "رمل",
+      "unit": "م3",
+      "qty": 1088.7,
+      "required_date": "2026-12-01",
+      "priority": "High",
+      "est_unit_price": 294.0
+    },
+    {
+      "line_id": "L002",
+      "mr_id": "MR-001",
+      "project_id": "P-NewCairo",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "qty": 40.3,
+      "required_date": "2026-12-01",
+      "priority": "Urgent",
+      "est_unit_price": 3990.0
+    },
+    {
+      "line_id": "L003",
+      "mr_id": "MR-001",
+      "project_id": "P-NewCairo",
+      "item": "زلط",
+      "unit": "م3",
+      "qty": 457.2,
+      "required_date": "2026-12-01",
+      "priority": "Normal",
+      "est_unit_price": 441.0
+    },
+    {
+      "line_id": "L004",
+      "mr_id": "MR-001",
+      "project_id": "P-NewCairo",
+      "item": "أسمنت",
+      "unit": "طن",
+      "qty": 123.9,
+      "required_date": "2026-12-01",
+      "priority": "Urgent",
+      "est_unit_price": 3360.0
+    },
+    {
+      "line_id": "L005",
+      "mr_id": "MR-001",
+      "project_id": "P-NewCairo",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "qty": 1079.6,
+      "required_date": "2026-12-01",
+      "priority": "Urgent",
+      "est_unit_price": 57.75
+    },
+    {
+      "line_id": "L006",
+      "mr_id": "MR-002",
+      "project_id": "P-Alex",
+      "item": "رمل",
+      "unit": "م3",
+      "qty": 602.2,
+      "required_date": "2026-11-28",
+      "priority": "High",
+      "est_unit_price": 294.0
+    },
+    {
+      "line_id": "L007",
+      "mr_id": "MR-002",
+      "project_id": "P-Alex",
+      "item": "زلط",
+      "unit": "م3",
+      "qty": 901.4,
+      "required_date": "2026-11-28",
+      "priority": "Urgent",
+      "est_unit_price": 441.0
+    },
+    {
+      "line_id": "L008",
+      "mr_id": "MR-002",
+      "project_id": "P-Alex",
+      "item": "أسمنت",
+      "unit": "طن",
+      "qty": 62.4,
+      "required_date": "2026-11-28",
+      "priority": "Urgent",
+      "est_unit_price": 3360.0
+    },
+    {
+      "line_id": "L009",
+      "mr_id": "MR-002",
+      "project_id": "P-Alex",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "qty": 802.8,
+      "required_date": "2026-11-28",
+      "priority": "Normal",
+      "est_unit_price": 57.75
+    },
+    {
+      "line_id": "L010",
+      "mr_id": "MR-002",
+      "project_id": "P-Alex",
+      "item": "حديد تسليح 16مم",
+      "unit": "طن",
+      "qty": 27.9,
+      "required_date": "2026-11-28",
+      "priority": "Urgent",
+      "est_unit_price": 39900.0
+    },
+    {
+      "line_id": "L011",
+      "mr_id": "MR-003",
+      "project_id": "P-NewCairo",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "qty": 1292.6,
+      "required_date": "2026-12-20",
+      "priority": "Urgent",
+      "est_unit_price": 57.75
+    },
+    {
+      "line_id": "L012",
+      "mr_id": "MR-003",
+      "project_id": "P-NewCairo",
+      "item": "زلط",
+      "unit": "م3",
+      "qty": 456.9,
+      "required_date": "2026-12-20",
+      "priority": "Normal",
+      "est_unit_price": 441.0
+    },
+    {
+      "line_id": "L013",
+      "mr_id": "MR-003",
+      "project_id": "P-NewCairo",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "qty": 928.2,
+      "required_date": "2026-12-20",
+      "priority": "Normal",
+      "est_unit_price": 99.75
+    },
+    {
+      "line_id": "L014",
+      "mr_id": "MR-003",
+      "project_id": "P-NewCairo",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "qty": 133.5,
+      "required_date": "2026-12-20",
+      "priority": "Normal",
+      "est_unit_price": 3990.0
+    },
+    {
+      "line_id": "L015",
+      "mr_id": "MR-003",
+      "project_id": "P-NewCairo",
+      "item": "ماسورة PVC 4 بوصة",
+      "unit": "متر",
+      "qty": 1030.3,
+      "required_date": "2026-12-20",
+      "priority": "Normal",
+      "est_unit_price": 73.5
+    }
+  ],
+  "offers": [
+    {
+      "supplier_id": "S3",
+      "item": "حديد تسليح 16مم",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 35752.89
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 34322.77
+        }
+      ],
+      "moq": 5,
+      "capacity": 121,
+      "lead_days": 14,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 708.53
+    },
+    {
+      "supplier_id": "S6",
+      "item": "حديد تسليح 16مم",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 36711.78
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 35243.31
+        }
+      ],
+      "moq": 5,
+      "capacity": 208,
+      "lead_days": 14,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 730.05
+    },
+    {
+      "supplier_id": "S7",
+      "item": "حديد تسليح 16مم",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 38663.08
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 37116.56
+        }
+      ],
+      "moq": 0,
+      "capacity": 248,
+      "lead_days": 10,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 746.47
+    },
+    {
+      "supplier_id": "S2",
+      "item": "أسمنت",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3115.01
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 2990.41
+        }
+      ],
+      "moq": 0,
+      "capacity": 239,
+      "lead_days": 14,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 42.89
+    },
+    {
+      "supplier_id": "S3",
+      "item": "أسمنت",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3025.47
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 2904.45
+        }
+      ],
+      "moq": 5,
+      "capacity": 265,
+      "lead_days": 7,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 42.29
+    },
+    {
+      "supplier_id": "S7",
+      "item": "أسمنت",
+      "unit": "طن",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3181.24
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3053.99
+        }
+      ],
+      "moq": 0,
+      "capacity": 219,
+      "lead_days": 10,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 30.39
+    },
+    {
+      "supplier_id": "S1",
+      "item": "رمل",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 289.76
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 278.17
+        }
+      ],
+      "moq": 0,
+      "capacity": 2674,
+      "lead_days": 14,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 3.61
+    },
+    {
+      "supplier_id": "S2",
+      "item": "رمل",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 291.04
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 279.4
+        }
+      ],
+      "moq": 0,
+      "capacity": 2867,
+      "lead_days": 2,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 3.55
+    },
+    {
+      "supplier_id": "S5",
+      "item": "رمل",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 278.11
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 266.99
+        }
+      ],
+      "moq": 0,
+      "capacity": 5833,
+      "lead_days": 2,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 2.83
+    },
+    {
+      "supplier_id": "S6",
+      "item": "رمل",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 281.26
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 270.01
+        }
+      ],
+      "moq": 0,
+      "capacity": 5106,
+      "lead_days": 2,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 5.37
+    },
+    {
+      "supplier_id": "S7",
+      "item": "رمل",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 288.29
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 276.76
+        }
+      ],
+      "moq": 0,
+      "capacity": 1867,
+      "lead_days": 7,
+      "payment_days": 60,
+      "delivery_cost_per_unit": 2.6
+    },
+    {
+      "supplier_id": "S1",
+      "item": "زلط",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 432.73
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 415.42
+        }
+      ],
+      "moq": 0,
+      "capacity": 1699,
+      "lead_days": 10,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 3.16
+    },
+    {
+      "supplier_id": "S4",
+      "item": "زلط",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 398.75
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 382.8
+        }
+      ],
+      "moq": 0,
+      "capacity": 2690,
+      "lead_days": 10,
+      "payment_days": 60,
+      "delivery_cost_per_unit": 2.61
+    },
+    {
+      "supplier_id": "S5",
+      "item": "زلط",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 425.21
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 408.21
+        }
+      ],
+      "moq": 0,
+      "capacity": 5487,
+      "lead_days": 10,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 6.55
+    },
+    {
+      "supplier_id": "S6",
+      "item": "زلط",
+      "unit": "م3",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 433.61
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 416.27
+        }
+      ],
+      "moq": 0,
+      "capacity": 3274,
+      "lead_days": 4,
+      "payment_days": 15,
+      "delivery_cost_per_unit": 2.62
+    },
+    {
+      "supplier_id": "S1",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3540.88
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3399.24
+        }
+      ],
+      "moq": 5,
+      "capacity": 144,
+      "lead_days": 7,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 27.3
+    },
+    {
+      "supplier_id": "S2",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3881.59
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3726.33
+        }
+      ],
+      "moq": 0,
+      "capacity": 348,
+      "lead_days": 14,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 45.03
+    },
+    {
+      "supplier_id": "S3",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 4076.58
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3913.51
+        }
+      ],
+      "moq": 5,
+      "capacity": 307,
+      "lead_days": 10,
+      "payment_days": 60,
+      "delivery_cost_per_unit": 41.74
+    },
+    {
+      "supplier_id": "S5",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3569.48
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3426.7
+        }
+      ],
+      "moq": 0,
+      "capacity": 356,
+      "lead_days": 10,
+      "payment_days": 15,
+      "delivery_cost_per_unit": 25.27
+    },
+    {
+      "supplier_id": "S6",
+      "item": "طوب أحمر",
+      "unit": "ألف",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 3592.36
+        },
+        {
+          "min_qty": 50,
+          "unit_price": 3448.66
+        }
+      ],
+      "moq": 5,
+      "capacity": 136,
+      "lead_days": 2,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 53.98
+    },
+    {
+      "supplier_id": "S2",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 56.38
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 54.13
+        }
+      ],
+      "moq": 0,
+      "capacity": 5804,
+      "lead_days": 14,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 0.67
+    },
+    {
+      "supplier_id": "S4",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 59.22
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 56.85
+        }
+      ],
+      "moq": 0,
+      "capacity": 3714,
+      "lead_days": 7,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 0.39
+    },
+    {
+      "supplier_id": "S5",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 57.26
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 54.97
+        }
+      ],
+      "moq": 0,
+      "capacity": 3706,
+      "lead_days": 4,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 0.44
+    },
+    {
+      "supplier_id": "S6",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 54.13
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 51.97
+        }
+      ],
+      "moq": 0,
+      "capacity": 4636,
+      "lead_days": 2,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 1.08
+    },
+    {
+      "supplier_id": "S7",
+      "item": "كابل نحاس 3x2.5",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 56.89
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 54.62
+        }
+      ],
+      "moq": 0,
+      "capacity": 2749,
+      "lead_days": 7,
+      "payment_days": 15,
+      "delivery_cost_per_unit": 0.57
+    },
+    {
+      "supplier_id": "S2",
+      "item": "ماسورة PVC 4 بوصة",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 70.38
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 67.56
+        }
+      ],
+      "moq": 0,
+      "capacity": 4400,
+      "lead_days": 14,
+      "payment_days": 15,
+      "delivery_cost_per_unit": 1.2
+    },
+    {
+      "supplier_id": "S3",
+      "item": "ماسورة PVC 4 بوصة",
+      "unit": "متر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 72.87
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 69.95
+        }
+      ],
+      "moq": 0,
+      "capacity": 2598,
+      "lead_days": 14,
+      "payment_days": 60,
+      "delivery_cost_per_unit": 0.72
+    },
+    {
+      "supplier_id": "S1",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 101.98
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 97.9
+        }
+      ],
+      "moq": 0,
+      "capacity": 3568,
+      "lead_days": 7,
+      "payment_days": 30,
+      "delivery_cost_per_unit": 0.59
+    },
+    {
+      "supplier_id": "S3",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 93.16
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 89.44
+        }
+      ],
+      "moq": 0,
+      "capacity": 3724,
+      "lead_days": 14,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 1.16
+    },
+    {
+      "supplier_id": "S4",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 99.74
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 95.76
+        }
+      ],
+      "moq": 0,
+      "capacity": 1973,
+      "lead_days": 2,
+      "payment_days": 60,
+      "delivery_cost_per_unit": 1.59
+    },
+    {
+      "supplier_id": "S5",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 95.16
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 91.36
+        }
+      ],
+      "moq": 0,
+      "capacity": 2385,
+      "lead_days": 7,
+      "payment_days": 0,
+      "delivery_cost_per_unit": 1.62
+    },
+    {
+      "supplier_id": "S6",
+      "item": "دهان بلاستيك",
+      "unit": "لتر",
+      "tiers": [
+        {
+          "min_qty": 0,
+          "unit_price": 93.99
+        },
+        {
+          "min_qty": 500,
+          "unit_price": 90.23
+        }
+      ],
+      "moq": 0,
+      "capacity": 3366,
+      "lead_days": 2,
+      "payment_days": 15,
+      "delivery_cost_per_unit": 0.72
+    }
+  ],
+  "budgets": {
+    "P-Alex": 2500000
+  }
+}
